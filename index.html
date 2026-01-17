@@ -1,20 +1,371 @@
 <!doctype html>
-<html>
+<html lang="fr">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Bes Fast Food - Commande</title>
-  <!-- Tu peux reprendre ton CSS redesign ici (celui que je t’ai donné) -->
-</head>
-<body>
 
-<div id="app">Chargement...</div>
+  <style>
+    :root{
+      --y:#FFC107;       /* jaune */
+      --o:#FF9800;       /* orange */
+      --r:#D32F2F;       /* rouge */
+      --g:#2E7D32;       /* vert */
+      --b:#5D4037;       /* brun */
+      --bg:#fff7e6;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --line:rgba(93,64,55,.14);
+      --shadow: 0 12px 30px rgba(93,64,55,.14);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:#1f2937;
+      background:
+        radial-gradient(900px 420px at 10% 0%, rgba(255,193,7,.50), transparent 60%),
+        radial-gradient(900px 420px at 90% 10%, rgba(255,152,0,.38), transparent 60%),
+        var(--bg);
+    }
+    header{
+      position:sticky; top:0; z-index:50;
+      background: linear-gradient(90deg, var(--y), var(--o));
+      border-bottom:1px solid rgba(93,64,55,.18);
+      padding: 14px 16px;
+    }
+    .topbar{
+      max-width:1100px; margin:auto;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .brand{display:flex; align-items:center; gap:12px; color:#2b1b16}
+    .logoDot{
+      width:46px; height:46px; border-radius:16px;
+      background: rgba(255,255,255,.55);
+      border:1px solid rgba(93,64,55,.24);
+      box-shadow: 0 8px 20px rgba(93,64,55,.14);
+      display:flex; align-items:center; justify-content:center;
+      font-weight:1000; letter-spacing:.8px;
+    }
+    .brand h1{margin:0; font-size:18px; line-height:1.05; font-weight:1000}
+    .brand .tag{
+      margin-top:3px; font-size:12px; font-weight:900;
+      color: rgba(46,125,50,.95);
+      background: rgba(255,255,255,.52);
+      border:1px solid rgba(46,125,50,.22);
+      padding:4px 10px; border-radius:999px; display:inline-block;
+    }
+    .pill{
+      font-size:12px; font-weight:1000;
+      padding:8px 12px; border-radius:999px;
+      background: rgba(255,255,255,.55);
+      border:1px solid rgba(93,64,55,.22);
+      color:#2b1b16; white-space:nowrap;
+    }
+
+    .wrap{max-width:1100px; margin:auto; padding:16px}
+    .grid{display:grid; grid-template-columns: 2fr 1fr; gap:14px}
+    @media(max-width:900px){ .grid{grid-template-columns:1fr} }
+
+    .card{
+      background: var(--card);
+      border-radius: var(--radius);
+      border:1px solid rgba(93,64,55,.16);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .cardHead{
+      padding:14px 14px 10px 14px;
+      background: linear-gradient(180deg, rgba(255,193,7,.28), rgba(255,152,0,.10));
+      border-bottom:1px solid rgba(93,64,55,.12);
+    }
+    .row{display:flex; align-items:center; justify-content:space-between; gap:12px}
+    .muted{color:var(--muted); font-size:13px}
+    .controls{
+      padding:12px 14px;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      border-bottom:1px solid rgba(93,64,55,.10);
+      background: rgba(255,255,255,.62);
+    }
+
+    input,select,textarea{
+      width:100%;
+      padding:11px 12px;
+      border-radius:14px;
+      border:1px solid rgba(93,64,55,.22);
+      outline:none;
+      background:#fff;
+      font-size:14px;
+    }
+    textarea{min-height:80px; resize:vertical}
+
+    .products{
+      padding:14px;
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:12px;
+    }
+    @media(max-width:560px){ .products{grid-template-columns:1fr} }
+
+    .prod{
+      border-radius: 18px;
+      border:1px solid rgba(93,64,55,.18);
+      background:
+        radial-gradient(520px 160px at 0% 0%, rgba(255,193,7,.30), transparent 60%),
+        #fff;
+      padding:12px;
+      transition: transform .18s ease, box-shadow .18s ease;
+      position:relative;
+    }
+    .prod:hover{ transform: translateY(-2px); box-shadow: 0 18px 34px rgba(93,64,55,.16); }
+
+    .prodTop{display:flex; gap:10px}
+    .thumb{
+      width:72px; height:72px; border-radius:16px;
+      background: rgba(255,152,0,.16);
+      border:1px solid rgba(93,64,55,.14);
+      overflow:hidden;
+      flex:0 0 auto;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:1000; color:#2b1b16;
+    }
+    .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+    .title{font-weight:1000; letter-spacing:.2px; margin:0}
+    .desc{margin-top:6px; font-size:13px; color:var(--muted)}
+    .price{
+      font-weight:1000; color: var(--b);
+      background: rgba(255,152,0,.16);
+      border:1px solid rgba(93,64,55,.12);
+      padding:6px 10px; border-radius:999px; white-space:nowrap;
+      display:inline-block;
+    }
+    .badges{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+    .badge{
+      font-size:12px; padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(93,64,55,.14);
+      background: rgba(255,255,255,.75);
+      font-weight:1000; color:#2b1b16;
+    }
+    .badge.green{border-color:rgba(46,125,50,.25); color:rgba(46,125,50,.95)}
+    .badge.red{border-color:rgba(211,47,47,.25); color:rgba(211,47,47,.95)}
+
+    .btn{
+      width:100%;
+      padding:11px 12px;
+      border-radius: 16px;
+      border:1px solid rgba(93,64,55,.18);
+      background: rgba(255,255,255,.74);
+      font-weight:1000;
+      cursor:pointer;
+      transition: transform .14s ease, filter .14s ease;
+    }
+    .btn:active{ transform: scale(.99) }
+    .btnPrimary{
+      background: linear-gradient(90deg, var(--r), #ff3b30);
+      color:#fff; border:none;
+      box-shadow: 0 16px 26px rgba(211,47,47,.22);
+    }
+    .btnAdd{
+      background: linear-gradient(90deg, #111, #2b1b16);
+      color:#fff; border:none;
+    }
+
+    .cartBody{padding:14px}
+    .hr{height:1px; background: rgba(93,64,55,.10); margin:12px 0}
+
+    .cartItem{
+      padding:10px 0;
+      display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
+    }
+    .cartItem .name{font-weight:1000}
+    .cartItem .sub{font-size:13px; color:var(--muted)}
+    .miniBtns{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
+    .mini{
+      padding:8px 10px; border-radius: 12px;
+      border:1px solid rgba(93,64,55,.20);
+      background:#fff; font-weight:1000; cursor:pointer;
+    }
+    .mini.danger{border-color:rgba(211,47,47,.35); color:var(--r)}
+
+    .field{margin-top:10px}
+    .label{
+      font-size:12px; font-weight:1000;
+      color:#2b1b16;
+      margin:0 0 6px 4px;
+      display:flex; gap:8px; align-items:center;
+    }
+    .req{
+      font-size:11px; font-weight:1000; color: var(--r);
+      background: rgba(211,47,47,.10);
+      border:1px solid rgba(211,47,47,.18);
+      padding:2px 8px; border-radius:999px;
+    }
+
+    .toast{
+      display:none;
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(46,125,50,.22);
+      background: rgba(46,125,50,.08);
+      color: rgba(46,125,50,.95);
+      font-weight:1000;
+    }
+    .err{
+      display:none;
+      margin: 14px 0 0 0;
+      padding:12px 14px;
+      border-radius: 16px;
+      border:1px solid rgba(211,47,47,.25);
+      background: rgba(211,47,47,.08);
+      color: rgba(211,47,47,.95);
+      font-weight:1000;
+    }
+
+    .loading{
+      padding:14px;
+      color:var(--muted);
+      font-weight:900;
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logoDot">BES</div>
+      <div>
+        <h1>Bes Fast Food</h1>
+        <div class="tag">Jeune • Rapide • Délicieux</div>
+      </div>
+    </div>
+    <div class="pill">Commande en ligne</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="err" class="err"></div>
+
+  <div class="grid">
+
+    <!-- MENU -->
+    <div class="card">
+      <div class="cardHead">
+        <div class="row">
+          <div>
+            <div style="font-weight:1000;font-size:18px">Menu</div>
+            <div class="muted">Produits affichés uniquement si <b>Stock &gt; 0</b></div>
+          </div>
+          <div style="max-width:260px; width:100%">
+            <select id="catFilter"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div style="flex:1">
+          <input id="search" placeholder="Recherche (ex: wings, gratiné...)">
+        </div>
+        <button class="btn" id="reloadBtn" type="button" style="max-width:160px">Recharger</button>
+      </div>
+
+      <div id="products" class="products">
+        <div class="loading">Chargement du menu...</div>
+      </div>
+    </div>
+
+    <!-- PANIER -->
+    <div class="card">
+      <div class="cardHead">
+        <div class="row">
+          <div>
+            <div style="font-weight:1000;font-size:18px">Panier</div>
+            <div class="muted">Prépare ta commande 🔥</div>
+          </div>
+          <button class="btn" id="refreshBtn" type="button" style="max-width:170px">Rafraîchir</button>
+        </div>
+      </div>
+
+      <div class="cartBody">
+        <div id="cartItems" class="muted">Panier vide</div>
+
+        <div class="hr"></div>
+
+        <div class="row">
+          <b>Total</b>
+          <b id="total">0.00</b>
+        </div>
+
+        <div class="hr"></div>
+
+        <div style="font-weight:1000;margin-bottom:8px">Finaliser</div>
+
+        <div class="field">
+          <div class="label">Nom <span class="req">Obligatoire</span></div>
+          <input id="clientNom" placeholder="Ex: Jean Paul">
+        </div>
+
+        <div class="field">
+          <div class="label">Téléphone <span class="req">Obligatoire</span></div>
+          <input id="telephone" placeholder="Ex: +509...">
+        </div>
+
+        <div class="field">
+          <div class="label">Type de commande</div>
+          <select id="typeCommande">
+            <option>Sur place</option>
+            <option>À emporter</option>
+            <option>Livraison</option>
+          </select>
+        </div>
+
+        <!-- Adresse obligatoire si Livraison -->
+        <div class="field" id="addrWrap" style="display:none">
+          <div class="label">Adresse de livraison <span class="req">Obligatoire</span></div>
+          <textarea id="adresse" placeholder="Ex: Rue..., maison..., repère..."></textarea>
+        </div>
+
+        <div class="field">
+          <div class="label">Note (optionnel)</div>
+          <textarea id="noteCommande" placeholder="Ex: sans piment..."></textarea>
+        </div>
+
+        <div style="margin-top:12px">
+          <button class="btn btnPrimary" id="checkoutBtn" type="button">Envoyer la commande ✅</button>
+          <div id="toast" class="toast"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <script>
-  // ✅ Mets ici ton URL Apps Script /exec
+  /*********************
+   * CONFIG
+   *********************/
   const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec";
 
-  // --- JSONP helper ---
+  /*********************
+   * HELPERS
+   *********************/
+  const $ = (id)=>document.getElementById(id);
+
+  function showErr(t){
+    const e=$("err");
+    e.style.display="block";
+    e.textContent = String(t || "Erreur");
+  }
+  function hideErr(){
+    const e=$("err");
+    e.style.display="none";
+    e.textContent="";
+  }
+  function money(x){ return Number(x||0).toFixed(2); }
+
+  // JSONP API
   function api(action, params = {}) {
     return new Promise((resolve, reject) => {
       const cb = "cb_" + Math.random().toString(16).slice(2);
@@ -43,7 +394,6 @@
     });
   }
 
-  // --- local guest ---
   function getGuestId(){
     let id = localStorage.getItem("guestId");
     if(!id){
@@ -53,86 +403,260 @@
     return id;
   }
 
-  // --- Demo minimal (je peux intégrer ton UI redesign complète ensuite) ---
-  (async function boot(){
-    const guestId = getGuestId();
+  const state = {
+    guestId: null,
+    orderId: null,
+    products: [],
+    lastCartTotal: 0
+  };
 
-    // Create/get draft order
-    const d = await api("createOrGetDraftOrder", { guestId });
-    if(!d.ok) return document.getElementById("app").textContent = d.error || "Erreur draft";
-    const orderId = d.orderId;
+  async function ensureDraft(){
+    if(!state.orderId){
+      const r = await api("createOrGetDraftOrder", { guestId: state.guestId });
+      if(!r.ok) throw new Error(r.error || "Impossible de créer Draft");
+      state.orderId = r.orderId;
+      localStorage.setItem("draftOrderId", state.orderId);
+    }
+  }
 
-    // Get products
-    const p = await api("getProducts");
-    if(!p.ok) return document.getElementById("app").textContent = p.error || "Erreur produits";
+  function norm(s){ return String(s||"").toLowerCase().trim(); }
 
-    // Quick render
-    const box = document.getElementById("app");
-    box.innerHTML = `
-      <h2>Bes Fast Food</h2>
-      <p>OrderID: <b>${orderId}</b></p>
-      <h3>Produits</h3>
-      <div id="list"></div>
-      <hr>
-      <h3>Checkout (test)</h3>
-      <div>
-        <input id="nom" placeholder="Nom"><br><br>
-        <input id="tel" placeholder="Téléphone"><br><br>
-        <select id="type">
-          <option>Sur place</option>
-          <option>À emporter</option>
-          <option>Livraison</option>
-        </select><br><br>
-        <textarea id="addr" placeholder="Adresse (obligatoire si livraison)"></textarea><br><br>
-        <button id="send">Envoyer commande</button>
-        <div id="msg"></div>
-      </div>
-    `;
+  function safeImgUrl(u){
+    const url = String(u||"").trim();
+    if(!url) return "";
+    // Allow http(s) only
+    if(!/^https?:\/\//i.test(url)) return "";
+    return url;
+  }
 
-    const list = document.getElementById("list");
-    list.innerHTML = (p.products || []).map(x => `
-      <div style="margin:8px 0;padding:10px;border:1px solid #ddd;border-radius:10px">
-        <b>${x.Nom}</b> — ${x.Prix}
-        <button data-id="${x.ProductID}" style="margin-left:10px">Ajouter</button>
-      </div>
-    `).join("");
+  function syncAddressVisibility(){
+    const t = norm($("typeCommande").value);
+    const isLiv = (t === "livraison");
+    $("addrWrap").style.display = isLiv ? "block" : "none";
+    if(!isLiv) $("adresse").value = "";
+  }
 
-    list.querySelectorAll("button[data-id]").forEach(btn=>{
-      btn.onclick = async () => {
-        const r = await api("addItem", { orderId, productId: btn.dataset.id, qty: 1 });
-        alert(r.ok ? "Ajouté ✅" : (r.error || "Erreur"));
-      };
+  /*********************
+   * PRODUCTS
+   *********************/
+  async function loadProducts(){
+    const box = $("products");
+    box.innerHTML = `<div class="loading">Chargement du menu...</div>`;
+
+    const r = await api("getProducts");
+    if(!r.ok) throw new Error(r.error || "Impossible de charger les produits");
+    state.products = r.products || [];
+
+    // Categories
+    const cats = Array.from(new Set(state.products.map(p=>p.Categorie).filter(Boolean)));
+    $("catFilter").innerHTML =
+      `<option value="">Toutes catégories</option>` + cats.map(c=>`<option>${c}</option>`).join("");
+
+    $("catFilter").onchange = renderProducts;
+    $("search").oninput = renderProducts;
+
+    renderProducts();
+  }
+
+  function renderProducts(){
+    const cat = $("catFilter").value;
+    const q = norm($("search").value);
+    const list = state.products.filter(p => {
+      const okCat = (!cat || String(p.Categorie) === String(cat));
+      const hay = norm(p.Nom) + " " + norm(p.Description) + " " + norm(p.Categorie);
+      const okQ = (!q || hay.includes(q));
+      return okCat && okQ;
     });
 
-    document.getElementById("send").onclick = async () => {
-      const type = document.getElementById("type").value;
-      const adresse = document.getElementById("addr").value.trim();
+    const box = $("products");
+    if(list.length===0){
+      box.innerHTML = `<div class="loading">Aucun produit trouvé.</div>`;
+      return;
+    }
 
-      // ✅ règle: adresse obligatoire si livraison
-      if(type.toLowerCase()==="livraison" && !adresse){
-        document.getElementById("msg").textContent = "Adresse obligatoire pour la livraison.";
+    box.innerHTML = list.map(p=>{
+      const img = safeImgUrl(p.Image);
+      const thumb = img
+        ? `<img src="${img}" alt="${(p.Nom||"").replace(/"/g,"")}" onerror="this.remove(); this.parentNode.textContent='BES';">`
+        : `BES`;
+
+      return `
+        <div class="prod">
+          <div class="prodTop">
+            <div class="thumb">${thumb}</div>
+            <div style="flex:1;min-width:0">
+              <div class="row" style="align-items:flex-start">
+                <div style="min-width:0">
+                  <div class="title">${p.Nom||""}</div>
+                  <div class="desc">${p.Description||""}</div>
+                </div>
+                <div class="price">${money(p.Prix)}</div>
+              </div>
+
+              <div class="badges">
+                <span class="badge green">${p.Categorie||""}</span>
+                <span class="badge">Stock: ${Number(p.Stock||0)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:10px">
+            <button class="btn btnAdd" type="button"
+              onclick="addToCart('${String(p.ProductID).replace(/'/g,"")}')">Ajouter au panier</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  window.addToCart = async function(productId){
+    try{
+      hideErr();
+      await ensureDraft();
+      const r = await api("addItem", { orderId: state.orderId, productId, qty: 1 });
+      if(!r.ok) throw new Error(r.error || "Erreur ajout panier");
+      await refreshCart(true);
+    }catch(e){ showErr(e.message || e); }
+  }
+
+  /*********************
+   * CART
+   *********************/
+  async function refreshCart(silent=false){
+    try{
+      if(!silent) hideErr();
+
+      if(!state.orderId){
+        state.orderId = localStorage.getItem("draftOrderId") || null;
+      }
+      if(!state.orderId){
+        $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+        $("total").textContent = money(0);
         return;
       }
 
+      const r = await api("getCart", { orderId: state.orderId });
+      if(!r.ok){
+        $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+        $("total").textContent = money(0);
+        return;
+      }
+
+      $("total").textContent = money(r.total);
+      state.lastCartTotal = Number(r.total||0);
+
+      const items = r.items || [];
+      if(items.length===0){
+        $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+        return;
+      }
+
+      $("cartItems").innerHTML = items.map(it=>`
+        <div class="cartItem">
+          <div style="flex:1;min-width:0">
+            <div class="name">${it.Nom||""}</div>
+            <div class="sub">${money(it.Prix)} × ${Number(it.Quantite||0)} = <b>${money(it.SousTotal)}</b></div>
+          </div>
+          <div class="miniBtns">
+            <button class="mini" type="button" onclick="qty('${it.ItemID}', ${Number(it.Quantite||1)-1})">−</button>
+            <button class="mini" type="button" onclick="qty('${it.ItemID}', ${Number(it.Quantite||1)+1})">+</button>
+            <button class="mini danger" type="button" onclick="rm('${it.ItemID}')">Retirer</button>
+          </div>
+        </div>
+        <div class="hr"></div>
+      `).join("");
+    }catch(e){
+      if(!silent) showErr(e.message || e);
+    }
+  }
+
+  window.qty = async function(itemId, q){
+    if(q<1) return;
+    await api("updateItemQty", { itemId, qty: q });
+    await refreshCart(true);
+  }
+  window.rm = async function(itemId){
+    await api("removeItem", { itemId });
+    await refreshCart(true);
+  }
+
+  /*********************
+   * CHECKOUT
+   *********************/
+  async function checkout(){
+    try{
+      hideErr();
+      $("toast").style.display="none";
+      $("toast").textContent="";
+
+      await ensureDraft();
+
       const payload = {
-        orderId,
-        clientNom: document.getElementById("nom").value.trim(),
-        telephone: document.getElementById("tel").value.trim(),
-        typeCommande: type,
-        adresse,
-        noteCommande: ""
+        orderId: state.orderId,
+        clientNom: $("clientNom").value.trim(),
+        telephone: $("telephone").value.trim(),
+        typeCommande: $("typeCommande").value,
+        adresse: $("adresse").value.trim(),
+        noteCommande: $("noteCommande").value.trim()
       };
 
-      const r = await api("checkout", payload);
-      document.getElementById("msg").textContent = r.ok ? ("Envoyé ✅ Total: " + r.total) : (r.error || "Erreur");
-    };
+      if(!payload.clientNom || !payload.telephone){
+        showErr("Nom et téléphone obligatoires.");
+        return;
+      }
 
-  })().catch(err=>{
-    document.getElementById("app").textContent = err.message || String(err);
-  });
+      if(norm(payload.typeCommande)==="livraison" && !payload.adresse){
+        showErr("Adresse obligatoire pour la livraison.");
+        return;
+      }
+
+      // Petit check panier vide côté UI (le serveur check aussi)
+      if(state.lastCartTotal <= 0){
+        showErr("Panier vide.");
+        return;
+      }
+
+      const r = await api("checkout", payload);
+      if(!r.ok) throw new Error(r.error || "Erreur checkout");
+
+      $("toast").style.display="block";
+      $("toast").textContent = `Commande envoyée ✅ Total: ${money(r.total)}`;
+
+      // Reset local draft
+      localStorage.removeItem("draftOrderId");
+      state.orderId = null;
+      state.lastCartTotal = 0;
+
+      await refreshCart(true);
+      await loadProducts(); // stock updated
+    }catch(e){
+      showErr(e.message || e);
+    }
+  }
+
+  /*********************
+   * BOOT
+   *********************/
+  (async function(){
+    try{
+      state.guestId = getGuestId();
+      $("refreshBtn").onclick = ()=>refreshCart(false);
+      $("reloadBtn").onclick = async ()=>{ hideErr(); await loadProducts(); };
+      $("checkoutBtn").onclick = checkout;
+      $("typeCommande").onchange = syncAddressVisibility;
+
+      syncAddressVisibility();
+
+      // Restore draft
+      state.orderId = localStorage.getItem("draftOrderId") || null;
+
+      await loadProducts();
+      await refreshCart(true);
+    }catch(e){
+      showErr(e.message || e);
+    }
+  })();
 </script>
 
 </body>
 </html>
-
-
