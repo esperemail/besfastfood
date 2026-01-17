@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Bes Fast Food - Commande</title>
+  <title>BES Fast Food - Commande</title>
 
   <style>
     :root{
@@ -15,7 +15,6 @@
       --bg:#fff7e6;
       --card:#ffffff;
       --muted:#6b7280;
-      --line:rgba(93,64,55,.14);
       --shadow: 0 12px 30px rgba(93,64,55,.14);
       --radius: 18px;
     }
@@ -29,91 +28,84 @@
         radial-gradient(900px 420px at 90% 10%, rgba(255,152,0,.38), transparent 60%),
         var(--bg);
     }
+
+    /* ===== HEADER CLEAN ===== */
     header{
       position:sticky; top:0; z-index:50;
       background: linear-gradient(90deg, var(--y), var(--o));
       border-bottom:1px solid rgba(93,64,55,.18);
-      padding: 14px 16px;
+      padding: 10px 14px;
     }
     .topbar{
-  max-width:1100px;
-  margin:auto;
-  display:flex;
-  align-items:center;
-  justify-content:space-between; /* 👈 clé du problème */
-  gap:12px;
-}
-
-.brand{
-  display:flex;
-  align-items:center;
-  gap:12px;
-}
-
-.logoDot{
-  width:52px;
-  height:52px;
-  border-radius:16px;
-  background:#fff;
-  border:2px solid #5D4037;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.logoDot img{
-  width:100%;
-  height:100%;
-  object-fit:contain;
-}
-
-.brandText{
-  display:flex;
-  flex-direction:column;
-  line-height:1;
-}
-
-.brandName{
-  font-size:22px;
-  font-weight:1000;
-  color:#5D4037;
-}
-
-.brandTag{
-  font-size:14px;
-  font-weight:900;
-  color:#2E7D32;
-}
-
-    .topbar{
-      max-width:1100px; margin:auto;
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      max-width:1100px;
+      margin:auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
     }
-    .brand{display:flex; align-items:center; gap:12px; color:#2b1b16}
-    .logoDot{
-      width:46px; height:46px; border-radius:16px;
-      background: rgba(255,255,255,.55);
-      border:1px solid rgba(93,64,55,.24);
-      box-shadow: 0 8px 20px rgba(93,64,55,.14);
-      display:flex; align-items:center; justify-content:center;
-      font-weight:1000; letter-spacing:.8px;
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
     }
-    .brand h1{margin:0; font-size:18px; line-height:1.05; font-weight:1000}
-    .brand .tag{
-      margin-top:3px; font-size:12px; font-weight:900;
+    .logoWrap{
+      width:56px;
+      height:56px;
+      border-radius:16px;
+      background: rgba(255,255,255,.75);
+      border:2px solid rgba(93,64,55,.28);
+      box-shadow: 0 10px 22px rgba(93,64,55,.18);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      flex:0 0 auto;
+    }
+    .logoWrap img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      display:block;
+    }
+    .brandText{
+      display:flex;
+      flex-direction:column;
+      line-height:1.05;
+      min-width:0;
+    }
+    .brandName{
+      font-size:22px;
+      font-weight:1000;
+      letter-spacing:.6px;
+      color:#2b1b16;
+    }
+    .brandTag{
+      margin-top:4px;
+      font-size:13px;
+      font-weight:1000;
       color: rgba(46,125,50,.95);
-      background: rgba(255,255,255,.52);
-      border:1px solid rgba(46,125,50,.22);
-      padding:4px 10px; border-radius:999px; display:inline-block;
     }
     .pill{
-      font-size:12px; font-weight:1000;
-      padding:8px 12px; border-radius:999px;
-      background: rgba(255,255,255,.55);
+      font-size:12px;
+      font-weight:1000;
+      padding:10px 14px;
+      border-radius:999px;
+      background: rgba(255,255,255,.65);
       border:1px solid rgba(93,64,55,.22);
-      color:#2b1b16; white-space:nowrap;
+      color:#2b1b16;
+      white-space:nowrap;
+      box-shadow: 0 10px 20px rgba(93,64,55,.12);
+    }
+    @media (max-width:520px){
+      .brandName{font-size:18px}
+      .brandTag{font-size:12px}
+      .pill{padding:9px 12px}
+      .logoWrap{width:50px;height:50px}
     }
 
+    /* ===== APP ===== */
     .wrap{max-width:1100px; margin:auto; padding:16px}
     .grid{display:grid; grid-template-columns: 2fr 1fr; gap:14px}
     @media(max-width:900px){ .grid{grid-template-columns:1fr} }
@@ -198,7 +190,6 @@
       font-weight:1000; color:#2b1b16;
     }
     .badge.green{border-color:rgba(46,125,50,.25); color:rgba(46,125,50,.95)}
-    .badge.red{border-color:rgba(211,47,47,.25); color:rgba(211,47,47,.95)}
 
     .btn{
       width:100%;
@@ -272,7 +263,6 @@
       color: rgba(211,47,47,.95);
       font-weight:1000;
     }
-
     .loading{
       padding:14px;
       color:var(--muted);
@@ -285,15 +275,14 @@
 <header>
   <div class="topbar">
     <div class="brand">
-      <div class="logoDot">
-    <img src="logo.jpg" alt="Bes Fast Food">
-      <div>
-        <div class="brandText">
-      <div class="brandName">BES</div>
-      <div class="brandTag">Fast Food</div>
+      <div class="logoWrap">
+        <img src="logo.jpg" alt="BES Fast Food">
+      </div>
+      <div class="brandText">
+        <div class="brandName">BES</div>
+        <div class="brandTag">Fast Food</div>
       </div>
     </div>
-        
     <div class="pill">Commande en ligne</div>
   </div>
 </header>
@@ -477,7 +466,6 @@
   function safeImgUrl(u){
     const url = String(u||"").trim();
     if(!url) return "";
-    // Allow http(s) only
     if(!/^https?:\/\//i.test(url)) return "";
     return url;
   }
@@ -500,7 +488,6 @@
     if(!r.ok) throw new Error(r.error || "Impossible de charger les produits");
     state.products = r.products || [];
 
-    // Categories
     const cats = Array.from(new Set(state.products.map(p=>p.Categorie).filter(Boolean)));
     $("catFilter").innerHTML =
       `<option value="">Toutes catégories</option>` + cats.map(c=>`<option>${c}</option>`).join("");
@@ -530,7 +517,8 @@
     box.innerHTML = list.map(p=>{
       const img = safeImgUrl(p.Image);
       const thumb = img
-        ? `<img src="${img}" alt="${(p.Nom||"").replace(/"/g,"")}" onerror="this.remove(); this.parentNode.textContent='BES';">`
+        ? `<img src="${img}" alt="${(p.Nom||"").replace(/"/g,"")}"
+              onerror="this.remove(); this.parentNode.textContent='BES';">`
         : `BES`;
 
       return `
@@ -545,17 +533,17 @@
                 </div>
                 <div class="price">${money(p.Prix)}</div>
               </div>
-
               <div class="badges">
                 <span class="badge green">${p.Categorie||""}</span>
                 <span class="badge">Stock: ${Number(p.Stock||0)}</span>
               </div>
             </div>
           </div>
-
           <div style="margin-top:10px">
             <button class="btn btnAdd" type="button"
-              onclick="addToCart('${String(p.ProductID).replace(/'/g,"")}')">Ajouter au panier</button>
+              onclick="addToCart('${String(p.ProductID).replace(/'/g,"")}')">
+              Ajouter au panier
+            </button>
           </div>
         </div>
       `;
@@ -585,6 +573,7 @@
       if(!state.orderId){
         $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
         $("total").textContent = money(0);
+        state.lastCartTotal = 0;
         return;
       }
 
@@ -592,6 +581,7 @@
       if(!r.ok){
         $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
         $("total").textContent = money(0);
+        state.lastCartTotal = 0;
         return;
       }
 
@@ -601,6 +591,7 @@
       const items = r.items || [];
       if(items.length===0){
         $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+        state.lastCartTotal = 0;
         return;
       }
 
@@ -663,7 +654,6 @@
         return;
       }
 
-      // Petit check panier vide côté UI (le serveur check aussi)
       if(state.lastCartTotal <= 0){
         showErr("Panier vide.");
         return;
@@ -675,13 +665,12 @@
       $("toast").style.display="block";
       $("toast").textContent = `Commande envoyée ✅ Total: ${money(r.total)}`;
 
-      // Reset local draft
       localStorage.removeItem("draftOrderId");
       state.orderId = null;
       state.lastCartTotal = 0;
 
       await refreshCart(true);
-      await loadProducts(); // stock updated
+      await loadProducts();
     }catch(e){
       showErr(e.message || e);
     }
@@ -693,6 +682,7 @@
   (async function(){
     try{
       state.guestId = getGuestId();
+
       $("refreshBtn").onclick = ()=>refreshCart(false);
       $("reloadBtn").onclick = async ()=>{ hideErr(); await loadProducts(); };
       $("checkoutBtn").onclick = checkout;
@@ -700,7 +690,6 @@
 
       syncAddressVisibility();
 
-      // Restore draft
       state.orderId = localStorage.getItem("draftOrderId") || null;
 
       await loadProducts();
@@ -713,10 +702,3 @@
 
 </body>
 </html>
-
-
-
-
-
-
-
