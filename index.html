@@ -71,13 +71,13 @@
       display:flex;
       flex-direction:column;
       line-height:1.05;
-      width: 120px;           /* <- même largeur pour les 2 lignes */
+      width: 120px;
       min-width:120px;
     }
     .brandName{
       font-size:22px;
       font-weight:1000;
-      letter-spacing: 8px;    /* espace B E S */
+      letter-spacing: 8px;
       color:#2b1b16;
       text-align:left;
       white-space:nowrap;
@@ -269,10 +269,17 @@
       color: rgba(211,47,47,.95);
       font-weight:1000;
     }
+
     .loading{
       padding:14px;
       color:var(--muted);
       font-weight:900;
+    }
+
+    .dim{
+      opacity:.65;
+      pointer-events:none;
+      filter:saturate(.9);
     }
   </style>
 </head>
@@ -282,10 +289,10 @@
   <div class="topbar">
     <div class="brand">
       <div class="logoWrap">
-        <img src="./logo.jpg" alt="BES Fast Food">
+        <img src="logo.jpg" alt="BES Fast Food">
       </div>
       <div class="brandText">
-        <div class="brandName">B E S</div>
+        <div class="brandName">BES</div>
         <div class="brandTag">Fast Food</div>
       </div>
     </div>
@@ -304,7 +311,7 @@
         <div class="row">
           <div>
             <div style="font-weight:1000;font-size:18px">Menu</div>
-            <div class="muted">Choisis tes produits et envoie la commande ✅</div>
+            <div class="muted">Ajout instantané ⚡ (pas de chargement Google)</div>
           </div>
           <div style="max-width:260px; width:100%">
             <select id="catFilter"></select>
@@ -316,7 +323,7 @@
         <div style="flex:1">
           <input id="search" placeholder="Recherche (ex: wings, gratiné...)">
         </div>
-        <button class="btn" id="reloadBtn" type="button" style="max-width:160px">Recharger</button>
+        <button class="btn" id="resetCartBtn" type="button" style="max-width:180px">Vider panier</button>
       </div>
 
       <div id="products" class="products">
@@ -325,14 +332,14 @@
     </div>
 
     <!-- PANIER -->
-    <div class="card">
+    <div class="card" id="cartCard">
       <div class="cardHead">
         <div class="row">
           <div>
             <div style="font-weight:1000;font-size:18px">Panier</div>
-            <div class="muted">Prépare ta commande 🔥</div>
+            <div class="muted">Local & instantané 🔥</div>
           </div>
-          <button class="btn" id="refreshBtn" type="button" style="max-width:170px">Rafraîchir</button>
+          <button class="btn" id="refreshBtn" type="button" style="max-width:170px">Actualiser</button>
         </div>
       </div>
 
@@ -398,7 +405,6 @@
 
   /*********************
    * PRODUITS (STATIC)
-   * Remplace Image par tes liens (ou laisse "")
    *********************/
   const STATIC_PRODUCTS = [
     { ProductID:"1", Nom:"Cornet (Pack de 6)", Prix:1250, Description:"", Categorie:"Nourriture", Image:"" },
@@ -406,26 +412,40 @@
     { ProductID:"3", Nom:"Gratiné wings",       Prix:1000, Description:"", Categorie:"Nourriture", Image:"" },
     { ProductID:"4", Nom:"Wings simple",        Prix:750,  Description:"", Categorie:"Nourriture", Image:"" },
     { ProductID:"5", Nom:"Cupcake (Pack de 6)", Prix:1500, Description:"", Categorie:"Dessert",    Image:"" },
-    { ProductID:"6", Nom:"Brownies (Pack de 6)",Prix:1500, Description:"", Categorie:"Dessert",    Image:"" }
+    { ProductID:"6", Nom:"Lasagne et wings",Prix:1500, Description:"", Categorie:"Nourriture",    Image:"" }
   ];
 
   /*********************
    * HELPERS
    *********************/
   const $ = (id)=>document.getElementById(id);
+  const CART_KEY = "bes_cart_v1";
+
+  function money(x){ return Number(x||0).toFixed(2); }
+  function norm(s){ return String(s||"").toLowerCase().trim(); }
 
   function showErr(t){
     const e=$("err");
     e.style.display="block";
     e.textContent = String(t || "Erreur");
+    window.scrollTo({top:0, behavior:"smooth"});
   }
   function hideErr(){
     const e=$("err");
     e.style.display="none";
     e.textContent="";
   }
-  function money(x){ return Number(x||0).toFixed(2); }
-  function norm(s){ return String(s||"").toLowerCase().trim(); }
+
+  function toast(msg){
+    const t=$("toast");
+    t.style.display="block";
+    t.textContent=String(msg||"");
+  }
+  function clearToast(){
+    const t=$("toast");
+    t.style.display="none";
+    t.textContent="";
+  }
 
   // JSONP API
   function api(action, params = {}) {
@@ -468,25 +488,9 @@
   function safeImgUrl(u){
     const url = String(u||"").trim();
     if(!url) return "";
-    if(/^https?:\/\//i.test(url)) return url;   // liens web
-    if(url.startsWith("./") || url.startsWith("assets/")) return url; // si tu veux local plus tard
+    if(/^https?:\/\//i.test(url)) return url;
+    if(url.startsWith("./") || url.startsWith("assets/")) return url;
     return "";
-  }
-
-  const state = {
-    guestId: null,
-    orderId: null,
-    products: [],
-    lastCartTotal: 0
-  };
-
-  async function ensureDraft(){
-    if(!state.orderId){
-      const r = await api("createOrGetDraftOrder", { guestId: state.guestId });
-      if(!r.ok) throw new Error(r.error || "Impossible de créer Draft");
-      state.orderId = r.orderId;
-      localStorage.setItem("draftOrderId", state.orderId);
-    }
   }
 
   function syncAddressVisibility(){
@@ -497,12 +501,58 @@
   }
 
   /*********************
+   * LOCAL CART
+   * structure: { [ProductID]: qty }
+   *********************/
+  function loadCart(){
+    try{
+      const raw = localStorage.getItem(CART_KEY);
+      if(!raw) return {};
+      const obj = JSON.parse(raw);
+      return (obj && typeof obj === "object") ? obj : {};
+    }catch(_){ return {}; }
+  }
+  function saveCart(cart){
+    localStorage.setItem(CART_KEY, JSON.stringify(cart || {}));
+  }
+  function clearCart(){
+    localStorage.removeItem(CART_KEY);
+  }
+
+  function cartToItems(cartObj){
+    const items = [];
+    for(const [pid, qty] of Object.entries(cartObj || {})){
+      const p = STATIC_PRODUCTS.find(x => String(x.ProductID) === String(pid));
+      if(!p) continue;
+      items.push({
+        ProductID: String(pid),
+        Nom: p.Nom,
+        Prix: Number(p.Prix||0),
+        Quantite: Math.max(1, Number(qty||1))
+      });
+    }
+    return items;
+  }
+
+  function cartTotal(cartObj){
+    let total = 0;
+    for(const [pid, qty] of Object.entries(cartObj || {})){
+      const p = STATIC_PRODUCTS.find(x => String(x.ProductID) === String(pid));
+      if(!p) continue;
+      total += Number(p.Prix||0) * Math.max(1, Number(qty||1));
+    }
+    return total;
+  }
+
+  /*********************
    * PRODUCTS (STATIC)
    *********************/
-  async function loadProducts(){
-    // 🔥 plus d'appel Google ici
-    state.products = STATIC_PRODUCTS;
+  const state = {
+    guestId: null,
+    products: STATIC_PRODUCTS
+  };
 
+  function loadProductsUI(){
     const cats = Array.from(new Set(state.products.map(p=>p.Categorie).filter(Boolean)));
     $("catFilter").innerHTML =
       `<option value="">Toutes catégories</option>` + cats.map(c=>`<option>${c}</option>`).join("");
@@ -551,7 +601,6 @@
                 </div>
                 <div class="price">${money(p.Prix)}</div>
               </div>
-
               <div class="badges">
                 <span class="${badgeClass}">${p.Categorie||""}</span>
               </div>
@@ -569,155 +618,168 @@
     }).join("");
   }
 
-  window.addToCart = async function(productId){
-    try{
-      hideErr();
-      await ensureDraft();
-      const r = await api("addItem", { orderId: state.orderId, productId, qty: 1 });
-      if(!r.ok) throw new Error(r.error || "Erreur ajout panier");
-      await refreshCart(true);
-    }catch(e){ showErr(e.message || e); }
-  }
-
   /*********************
-   * CART
+   * CART UI (LOCAL)
    *********************/
-  async function refreshCart(silent=false){
-    try{
-      if(!silent) hideErr();
+  function renderCart(){
+    const cart = loadCart();
+    const items = cartToItems(cart);
+    const total = cartTotal(cart);
 
-      if(!state.orderId){
-        state.orderId = localStorage.getItem("draftOrderId") || null;
-      }
-      if(!state.orderId){
-        $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
-        $("total").textContent = money(0);
-        state.lastCartTotal = 0;
-        return;
-      }
+    $("total").textContent = money(total);
 
-      const r = await api("getCart", { orderId: state.orderId });
-      if(!r.ok){
-        $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
-        $("total").textContent = money(0);
-        state.lastCartTotal = 0;
-        return;
-      }
+    if(items.length === 0){
+      $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+      return;
+    }
 
-      $("total").textContent = money(r.total);
-      state.lastCartTotal = Number(r.total||0);
-
-      const items = r.items || [];
-      if(items.length===0){
-        $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
-        state.lastCartTotal = 0;
-        return;
-      }
-
-      $("cartItems").innerHTML = items.map(it=>`
+    $("cartItems").innerHTML = items.map(it=>{
+      const sub = Number(it.Prix||0) * Number(it.Quantite||0);
+      return `
         <div class="cartItem">
           <div style="flex:1;min-width:0">
             <div class="name">${it.Nom||""}</div>
-            <div class="sub">${money(it.Prix)} × ${Number(it.Quantite||0)} = <b>${money(it.SousTotal)}</b></div>
+            <div class="sub">${money(it.Prix)} × ${Number(it.Quantite||0)} = <b>${money(sub)}</b></div>
           </div>
+
           <div class="miniBtns">
-            <button class="mini" type="button" onclick="qty('${it.ItemID}', ${Number(it.Quantite||1)-1})">−</button>
-            <button class="mini" type="button" onclick="qty('${it.ItemID}', ${Number(it.Quantite||1)+1})">+</button>
-            <button class="mini danger" type="button" onclick="rm('${it.ItemID}')">Retirer</button>
+            <button class="mini" type="button" onclick="qty('${it.ProductID}', ${Number(it.Quantite||1)-1})">−</button>
+            <button class="mini" type="button" onclick="qty('${it.ProductID}', ${Number(it.Quantite||1)+1})">+</button>
+            <button class="mini danger" type="button" onclick="rm('${it.ProductID}')">Retirer</button>
           </div>
         </div>
         <div class="hr"></div>
-      `).join("");
-    }catch(e){
-      if(!silent) showErr(e.message || e);
-    }
+      `;
+    }).join("");
   }
 
-  window.qty = async function(itemId, q){
-    if(q<1) return;
-    await api("updateItemQty", { itemId, qty: q });
-    await refreshCart(true);
+  window.addToCart = function(productId){
+    hideErr();
+    clearToast();
+
+    const cart = loadCart();
+    const pid = String(productId);
+    cart[pid] = (Number(cart[pid]||0) + 1);
+    saveCart(cart);
+
+    renderCart();
+    toast("Ajouté au panier ✅");
+    setTimeout(clearToast, 900);
   }
-  window.rm = async function(itemId){
-    await api("removeItem", { itemId });
-    await refreshCart(true);
+
+  window.qty = function(productId, q){
+    hideErr();
+    clearToast();
+
+    const cart = loadCart();
+    const pid = String(productId);
+    const next = Number(q||0);
+
+    if(next <= 0){
+      delete cart[pid];
+    }else{
+      cart[pid] = next;
+    }
+    saveCart(cart);
+    renderCart();
+  }
+
+  window.rm = function(productId){
+    hideErr();
+    clearToast();
+
+    const cart = loadCart();
+    delete cart[String(productId)];
+    saveCart(cart);
+    renderCart();
+  }
+
+  function setBusy(isBusy){
+    const card = $("cartCard");
+    if(isBusy) card.classList.add("dim");
+    else card.classList.remove("dim");
+    $("checkoutBtn").disabled = !!isBusy;
   }
 
   /*********************
-   * CHECKOUT
+   * CHECKOUT (ONE CALL)
    *********************/
   async function checkout(){
     try{
       hideErr();
-      $("toast").style.display="none";
-      $("toast").textContent="";
+      clearToast();
+      setBusy(true);
 
-      await ensureDraft();
+      const cart = loadCart();
+      const items = cartToItems(cart);
+      const total = cartTotal(cart);
+
+      if(items.length === 0 || total <= 0){
+        showErr("Panier vide.");
+        return;
+      }
 
       const payload = {
-        orderId: state.orderId,
+        guestId: state.guestId,
         clientNom: $("clientNom").value.trim(),
         telephone: $("telephone").value.trim(),
         typeCommande: $("typeCommande").value,
         adresse: $("adresse").value.trim(),
-        noteCommande: $("noteCommande").value.trim()
+        noteCommande: $("noteCommande").value.trim(),
+        // On envoie seulement ProductID + Quantite (serveur récupère le prix officiel)
+        items: items.map(it => ({ ProductID: it.ProductID, Quantite: it.Quantite }))
       };
 
       if(!payload.clientNom || !payload.telephone){
         showErr("Nom et téléphone obligatoires.");
         return;
       }
-
-      if(norm(payload.typeCommande)==="livraison" && !payload.adresse){
+      if(norm(payload.typeCommande) === "livraison" && !payload.adresse){
         showErr("Adresse obligatoire pour la livraison.");
         return;
       }
 
-      if(state.lastCartTotal <= 0){
-        showErr("Panier vide.");
-        return;
-      }
+      // ✅ un seul appel Apps Script
+      const r = await api("submitOrder", { payload: JSON.stringify(payload) });
 
-      const r = await api("checkout", payload);
-      if(!r.ok) throw new Error(r.error || "Erreur checkout");
+      if(!r || !r.ok) throw new Error((r && r.error) ? r.error : "Erreur submitOrder");
 
-      $("toast").style.display="block";
-      $("toast").textContent = `Commande envoyée ✅ Total: ${money(r.total)}`;
+      toast(`Commande envoyée ✅ Total: ${money(r.total)}`);
 
-      localStorage.removeItem("draftOrderId");
-      state.orderId = null;
-      state.lastCartTotal = 0;
+      // Reset local cart
+      clearCart();
+      renderCart();
 
-      await refreshCart(true);
-      // pas besoin de recharger produits (static)
+      // Optionnel: vider champs
+      $("noteCommande").value = "";
+      $("adresse").value = "";
+      $("typeCommande").value = "Sur place";
+      syncAddressVisibility();
+
     }catch(e){
       showErr(e.message || e);
+    }finally{
+      setBusy(false);
     }
   }
 
   /*********************
    * BOOT
    *********************/
-  (async function(){
-    try{
-      state.guestId = getGuestId();
+  (function(){
+    state.guestId = getGuestId();
 
-      $("refreshBtn").onclick = ()=>refreshCart(false);
-      $("reloadBtn").onclick = async ()=>{ hideErr(); await loadProducts(); };
-      $("checkoutBtn").onclick = checkout;
-      $("typeCommande").onchange = syncAddressVisibility;
+    $("refreshBtn").onclick = renderCart;
+    $("checkoutBtn").onclick = checkout;
+    $("typeCommande").onchange = syncAddressVisibility;
+    $("resetCartBtn").onclick = ()=>{ clearCart(); renderCart(); toast("Panier vidé ✅"); setTimeout(clearToast, 900); };
 
-      syncAddressVisibility();
-
-      state.orderId = localStorage.getItem("draftOrderId") || null;
-
-      await loadProducts();
-      await refreshCart(true);
-    }catch(e){
-      showErr(e.message || e);
-    }
+    syncAddressVisibility();
+    loadProductsUI();
+    renderCart();
   })();
 </script>
 
 </body>
 </html>
+
