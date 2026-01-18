@@ -17,14 +17,20 @@
       --btn2:#22355e;
       --radius:16px;
       --shadow: 0 12px 32px rgba(0,0,0,.35);
+
+      --newRow: rgba(255,193,7,.12);
+      --recvRow: rgba(255,193,7,.08);
+      --workRow: rgba(46,125,50,.07);
+      --cancelRow: rgba(211,47,47,.08);
     }
     *{box-sizing:border-box}
     body{
       margin:0;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      background: radial-gradient(900px 500px at 10% 0%, rgba(255,193,7,.12), transparent 55%),
-                  radial-gradient(900px 500px at 90% 10%, rgba(211,47,47,.10), transparent 55%),
-                  var(--bg);
+      background:
+        radial-gradient(900px 500px at 10% 0%, rgba(255,193,7,.12), transparent 55%),
+        radial-gradient(900px 500px at 90% 10%, rgba(211,47,47,.10), transparent 55%),
+        var(--bg);
       color:var(--txt);
     }
     header{
@@ -39,6 +45,7 @@
     .sp{justify-content:space-between}
     .brand{font-weight:1000;letter-spacing:1px}
     .pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:800;font-size:12px}
+
     .card{
       background: rgba(255,255,255,.04);
       border:1px solid var(--line);
@@ -60,6 +67,7 @@
       font-weight:900;cursor:pointer;
     }
     .tab.active{background: linear-gradient(90deg, rgba(255,193,7,.25), rgba(255,152,0,.15)); border-color: rgba(255,193,7,.25)}
+
     .btn{
       border:1px solid var(--line);
       background: var(--btn);
@@ -73,6 +81,7 @@
     .btn.warn{background:rgba(255,193,7,.18);border-color:rgba(255,193,7,.28)}
     .btn.bad{background:rgba(211,47,47,.18);border-color:rgba(211,47,47,.28)}
     .btn:disabled{opacity:.5;cursor:not-allowed}
+
     .content{padding:14px}
     input,select,textarea{
       width:100%;
@@ -85,12 +94,15 @@
       font-size:14px;
     }
     textarea{min-height:90px;resize:vertical}
+
     table{width:100%;border-collapse:collapse}
     th,td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
     th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:left}
+
     .muted{color:var(--muted);font-size:13px}
     .toast{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(46,125,50,.25);background:rgba(46,125,50,.12);color:rgba(185,255,210,.95);font-weight:900}
     .err{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(211,47,47,.25);background:rgba(211,47,47,.12);color:rgba(255,200,200,.95);font-weight:900}
+
     .actions{display:flex;gap:8px;flex-wrap:wrap}
     .badge{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);font-weight:900;font-size:12px}
     .badge.good{border-color:rgba(46,125,50,.35);color:rgba(185,255,210,.95)}
@@ -102,6 +114,7 @@
     @media(max-width:900px){.grid{grid-template-columns:1fr}}
     .menuGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     @media(max-width:560px){.menuGrid{grid-template-columns:1fr}}
+
     .prod{
       border:1px solid var(--line);
       border-radius:14px;
@@ -113,6 +126,22 @@
       padding:8px 10px;border-radius:12px;border:1px solid var(--line);
       background:rgba(255,255,255,.06);color:var(--txt);font-weight:900;cursor:pointer;
     }
+
+    /* ✅ Highlight commandes */
+    tr.is-new td{ background: var(--newRow); }
+    tr.is-received td{ background: var(--recvRow); }
+    tr.is-working td{ background: var(--workRow); }
+    tr.is-cancel td{ background: var(--cancelRow); }
+    tr.is-new td{ animation: flash 1.2s ease-in-out 2; }
+    @keyframes flash{
+      0%{ filter:brightness(1.05); }
+      50%{ filter:brightness(1.25); }
+      100%{ filter:brightness(1.05); }
+    }
+
+    .twoCol{display:grid;grid-template-columns: 1fr 1fr; gap:10px}
+    @media(max-width:700px){.twoCol{grid-template-columns:1fr}}
+    .small{font-size:12px}
   </style>
 </head>
 
@@ -139,7 +168,8 @@
       </div>
 
       <div class="row">
-        <input id="adminKey" placeholder="ADMIN KEY (obligatoire pour commandes/prod)" style="max-width:340px" />
+        <!-- ✅ ADMIN KEY auto (pré-rempli) -->
+        <input id="adminKey" placeholder="ADMIN KEY (auto)" style="max-width:340px" />
         <select id="statusFilter" style="max-width:240px">
           <option value="">Tous statuts</option>
           <option>Reçue</option>
@@ -177,18 +207,109 @@
             </table>
           </div>
         </div>
+        <div class="muted small" style="margin-top:10px">
+          Astuce: les nouvelles commandes (non vues) apparaissent en <b>jaune</b>.
+        </div>
       </section>
 
       <!-- PRODUCTS -->
       <section id="tab-products" style="display:none">
-        <div class="card">
-          <div class="cardHead">
-            <b>Produits</b>
-            <div class="row">
-              <button class="btn" id="reloadProductsBtn" type="button">Recharger</button>
+        <div class="grid">
+          <div class="card">
+            <div class="cardHead">
+              <b>Produits</b>
+              <div class="row">
+                <button class="btn" id="reloadProductsBtn" type="button">Recharger</button>
+              </div>
+            </div>
+            <div class="content" id="productsBox" class="muted">Chargement…</div>
+          </div>
+
+          <div class="card">
+            <div class="cardHead">
+              <b>Ajouter / Modifier</b>
+              <div class="row">
+                <button class="btn warn" id="reloadCatsBtn" type="button">Catégories</button>
+              </div>
+            </div>
+            <div class="content">
+              <div class="twoCol">
+                <div>
+                  <label class="small muted">ProductID</label>
+                  <input id="pf_id" placeholder="Ex: 10" />
+                </div>
+                <div>
+                  <label class="small muted">Nom</label>
+                  <input id="pf_name" placeholder="Ex: Burger BES" />
+                </div>
+              </div>
+
+              <div class="twoCol" style="margin-top:10px">
+                <div>
+                  <label class="small muted">Catégorie (choisir)</label>
+                  <select id="pf_catSelect"></select>
+                </div>
+                <div>
+                  <label class="small muted">Catégorie (nouvelle)</label>
+                  <input id="pf_catNew" placeholder="Ex: Boisson" />
+                </div>
+              </div>
+
+              <div class="twoCol" style="margin-top:10px">
+                <div>
+                  <label class="small muted">Prix (HTG)</label>
+                  <input id="pf_price" type="number" step="0.01" placeholder="Ex: 250" />
+                </div>
+                <div>
+                  <label class="small muted">Stock</label>
+                  <input id="pf_stock" type="number" step="1" placeholder="Ex: 20" />
+                </div>
+              </div>
+
+              <div class="twoCol" style="margin-top:10px">
+                <div>
+                  <label class="small muted">Ordre (optionnel)</label>
+                  <input id="pf_order" type="number" step="1" placeholder="Ex: 1" />
+                </div>
+                <div>
+                  <label class="small muted">Actif</label>
+                  <select id="pf_active">
+                    <option value="TRUE">TRUE (actif)</option>
+                    <option value="FALSE">FALSE (désactivé)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="row">
+                <button class="btn good" id="saveProductBtn" type="button">Enregistrer</button>
+                <button class="btn" id="fillFromSelectedBtn" type="button">Remplir depuis liste</button>
+                <button class="btn bad" id="clearFormBtn" type="button">Vider</button>
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="row">
+                <div style="flex:1">
+                  <label class="small muted">Ajuster stock rapide (ProductID)</label>
+                  <input id="stock_pid" placeholder="Ex: 10" />
+                </div>
+                <div style="width:160px">
+                  <label class="small muted">Nouveau stock</label>
+                  <input id="stock_value" type="number" step="1" placeholder="Ex: 0" />
+                </div>
+                <div style="width:160px">
+                  <label class="small muted">&nbsp;</label>
+                  <button class="btn warn" id="setStockBtn" type="button">Mettre</button>
+                </div>
+              </div>
+
+              <div class="muted small" style="margin-top:8px">
+                Note: si Stock = 0 → le produit ne sort pas côté client (ton API getProducts filtre déjà).
+              </div>
             </div>
           </div>
-          <div class="content" id="productsBox">Chargement…</div>
         </div>
       </section>
 
@@ -280,6 +401,8 @@
  ***************/
 const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec";
 const DEFAULT_COUNTRY_CODE = "509";
+const DEFAULT_ADMIN_KEY = "bes_admin_06070048094439";
+const LS_ADMIN_KEY = "bes_admin_key";
 
 /***************
  * JSONP helper
@@ -334,6 +457,7 @@ function apiJsonp(action, params = {}) {
  * UI helpers
  ***************/
 const $ = (id)=>document.getElementById(id);
+
 function toast(msg){
   $("toast").style.display="block";
   $("toast").textContent=String(msg||"");
@@ -352,6 +476,17 @@ function escapeHtml(s){
   return String(s||"").replace(/[&<>"']/g, (m)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
 }
 function norm(s){ return String(s||"").toLowerCase().trim(); }
+
+/***************
+ * Admin key auto
+ ***************/
+function getAdminKey(){
+  const saved = localStorage.getItem(LS_ADMIN_KEY);
+  return (saved && saved.trim()) ? saved.trim() : DEFAULT_ADMIN_KEY;
+}
+function setAdminKey(v){
+  localStorage.setItem(LS_ADMIN_KEY, String(v||"").trim());
+}
 
 /***************
  * WhatsApp helpers (CLIENT)
@@ -385,7 +520,7 @@ document.querySelectorAll(".tab").forEach(btn=>{
     $("tab-place").style.display    = (tab==="place") ? "block" : "none";
 
     if(tab==="orders") loadOrders();
-    if(tab==="products") loadProducts();
+    if(tab==="products") { loadCategories(); loadProducts(); }
     if(tab==="place") loadMenuForPlace();
   });
 });
@@ -393,14 +528,24 @@ document.querySelectorAll(".tab").forEach(btn=>{
 $("refreshBtn").addEventListener("click", ()=>{
   const active = document.querySelector(".tab.active")?.dataset?.tab || "orders";
   if(active==="orders") loadOrders();
-  if(active==="products") loadProducts();
+  if(active==="products") { loadCategories(); loadProducts(); }
   if(active==="place") loadMenuForPlace();
 });
 $("statusFilter").addEventListener("change", loadOrders);
 
 /***************
- * Orders
+ * Orders (highlight nouvelles)
  ***************/
+let prevOrderIds = new Set();
+
+function rowClassForStatus(status){
+  const st = norm(status);
+  if(st.includes("annul")) return "is-cancel";
+  if(st.includes("prêt") || st.includes("pret")) return "is-working";
+  if(st.includes("reç") || st.includes("recu") || st.includes("reçue")) return "is-received";
+  return "";
+}
+
 async function loadOrders(){
   try{
     const k = $("adminKey").value.trim();
@@ -414,8 +559,11 @@ async function loadOrders(){
 
     if(orders.length===0){
       tb.innerHTML = `<tr><td colspan="7" class="muted">Aucune commande.</td></tr>`;
+      prevOrderIds = new Set();
       return;
     }
+
+    const currentIds = new Set(orders.map(o=>String(o.OrderID||"").trim()).filter(Boolean));
 
     tb.innerHTML = orders.map(o=>{
       const type = o.TypeCommande || "";
@@ -426,12 +574,17 @@ async function loadOrders(){
       const badgeClass =
         /annul/i.test(st) ? "badge bad" :
         /prêt|pret/i.test(st) ? "badge good" :
-        /reç/i.test(st) ? "badge warn" : "badge";
+        /reç|recu/i.test(st) ? "badge warn" : "badge";
 
       const safeOrderJson = JSON.stringify(o).replace(/</g,"\\u003c");
+      const oid = String(o.OrderID||"").trim();
+
+      // ✅ Nouvelle commande = id pas vu au refresh précédent ET statut Reçue
+      const isNew = (!prevOrderIds.has(oid)) && (/reç|recu/i.test(st));
+      const trClass = (isNew ? "is-new " : "") + rowClassForStatus(st);
 
       return `
-        <tr>
+        <tr class="${trClass}">
           <td>${escapeHtml(o.DateHeure || "")}</td>
           <td><b>${escapeHtml(o.ClientNom || "")}</b><div class="muted">${escapeHtml(o.Telephone || "")}</div></td>
           <td>${escapeHtml(type)}</td>
@@ -457,7 +610,7 @@ async function loadOrders(){
               </button>
 
               <button class="btn bad" type="button"
-                onclick="setStatus('${String(o.OrderID||"").replace(/'/g,"")}', 'Annuler')">
+                onclick="setStatus('${oid.replace(/'/g,"")}', 'Annuler')">
                 Annuler
               </button>
             </div>
@@ -465,6 +618,9 @@ async function loadOrders(){
         </tr>
       `;
     }).join("");
+
+    // ✅ après rendu : ce qui est affiché devient "vu"
+    prevOrderIds = currentIds;
 
   }catch(e){
     showErr(e.message || e);
@@ -507,7 +663,7 @@ window.readyTakeaway = async function(order){
 };
 
 /***************
- * Print POS 80mm (✅ SAFE)
+ * Print POS 80mm (corrigé, sans duplication)
  ***************/
 window.printPOS80 = function(order){
   try{
@@ -519,12 +675,14 @@ window.printPOS80 = function(order){
           const name = escapeHtml(i.Nom||"");
           const q = Number(i.Quantite||0);
           const st = fmtHTG(i.SousTotal||0);
-          return `<tr><td>${name}</td><td class="right">${q}</td><td class="right">${st}</td></tr>`;
+          return `<tr><td class="name">${name}</td><td class="qty">${q}</td><td class="amt">${st}</td></tr>`;
         }).join("")
       : `<tr><td colspan="3">${escapeHtml(resume || "-")}</td></tr>`;
 
-    const w = window.open("", "_blank", "width=420,height=800");
-    w.document.write(`<!doctype html>
+    const w = window.open("", "_blank", "width=420,height=820");
+    if(!w) { showErr("Popup bloqué (impression)."); return; }
+
+    const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -536,40 +694,45 @@ h1{text-align:center;font-size:16px;margin:0}
 .small{font-size:12px}
 .hr{border-top:1px dashed #000;margin:8px 0}
 table{width:100%;border-collapse:collapse;font-size:12px}
-td{padding:3px 0}
-.right{text-align:right}
+td{padding:4px 0}
+td.qty{width:18mm;text-align:right}
+td.amt{width:28mm;text-align:right}
+.footer{text-align:center;margin-top:10px}
 </style>
 </head>
 <body>
 <h1>BES FAST FOOD</h1>
 <div class="small">
-<b>Client:</b> ${escapeHtml(order.ClientNom||"")}<br>
-<b>Tél:</b> ${escapeHtml(order.Telephone||"")}<br>
-<b>Type:</b> ${escapeHtml(order.TypeCommande||"")}<br>
-<b>Date:</b> ${escapeHtml(order.DateHeure||"")}
+  <div><b>Date:</b> ${escapeHtml(order.DateHeure||"")}</div>
+  <div><b>Client:</b> ${escapeHtml(order.ClientNom||"")}</div>
+  <div><b>Tél:</b> ${escapeHtml(order.Telephone||"")}</div>
+  <div><b>Type:</b> ${escapeHtml(order.TypeCommande||"")}</div>
+  ${order.Adresse ? `<div><b>Adresse:</b> ${escapeHtml(order.Adresse||"")}</div>` : ``}
 </div>
 
 <div class="hr"></div>
 
 <table>
-<tr><td><b>Article</b></td><td class="right"><b>Qté</b></td><td class="right"><b>Montant</b></td></tr>
-${rows}
+  <tbody>
+    ${rows}
+  </tbody>
 </table>
 
 <div class="hr"></div>
-<div class="small">
-<b>Total:</b> ${fmtHTG(order.Total||0)}<br>
-<b>Statut:</b> ${escapeHtml(order.Statut||"-")}
-</div>
 
-<div class="hr"></div>
-<div class="small" style="text-align:center">Merci d'avoir choisi BES Fast Food</div>
+<div class="small"><b>Total:</b> ${fmtHTG(order.Total||0)}</div>
+
+<div class="footer small">Merci d'avoir choisi BES Fast Food</div>
 
 <script>
 window.onload = function(){ window.print(); };
 <\/script>
+
 </body>
-</html>`);
+</html>`;
+
+    w.document.open();
+    w.document.write(html);
     w.document.close();
 
   }catch(e){
@@ -578,8 +741,27 @@ window.onload = function(){ window.print(); };
 };
 
 /***************
- * Products
+ * Products (liste + upsert + catégories + stock)
  ***************/
+let productsCache = [];
+let categoriesCache = [];
+
+async function loadCategories(){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_listCategories", { k });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listCategories");
+
+    categoriesCache = Array.isArray(r.categories) ? r.categories : [];
+    const sel = $("pf_catSelect");
+    sel.innerHTML = `<option value="">(Aucune)</option>` + categoriesCache.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  }catch(e){
+    // si la route n'existe pas / erreur, on ne bloque pas
+    categoriesCache = [];
+    $("pf_catSelect").innerHTML = `<option value="">(Aucune)</option>`;
+  }
+}
+
 async function loadProducts(){
   try{
     const k = $("adminKey").value.trim();
@@ -587,6 +769,8 @@ async function loadProducts(){
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listProducts");
 
     const list = Array.isArray(r.products) ? r.products : [];
+    productsCache = list;
+
     if(list.length===0){
       $("productsBox").innerHTML = `<div class="muted">Aucun produit.</div>`;
       return;
@@ -595,15 +779,18 @@ async function loadProducts(){
     const html = list.map(p=>{
       const actif = String(p.Actif || "TRUE").toUpperCase() !== "FALSE";
       const stock = Number(p.Stock || 0);
+      const pid = escapeHtml(p.ProductID||"");
       return `
         <div class="prod" style="margin-bottom:10px">
           <div style="min-width:0">
             <b>${escapeHtml(p.Nom||"")}</b>
             <div class="muted">${escapeHtml(p.Categorie||"")}</div>
-            <div class="muted">Prix: <b>${fmtHTG(p.Prix||0)}</b> • Stock: <b>${stock}</b> • Actif: <b>${actif ? "Oui" : "Non"}</b></div>
+            <div class="muted">ID: <b>${pid}</b> • Prix: <b>${fmtHTG(p.Prix||0)}</b> • Stock: <b>${stock}</b> • Actif: <b>${actif ? "Oui" : "Non"}</b></div>
+            <div class="muted small">Ordre: ${escapeHtml(p.Ordre ?? "")}</div>
           </div>
-          <div>
+          <div class="row" style="justify-content:flex-end">
             <span class="badge ${stock>0 && actif ? "good":"bad"}">${stock>0 && actif ? "En vente" : "Hors vente"}</span>
+            <button class="btn" type="button" onclick="pickProduct('${String(p.ProductID||"").replace(/'/g,"")}')">Sélectionner</button>
           </div>
         </div>
       `;
@@ -616,7 +803,92 @@ async function loadProducts(){
     $("productsBox").textContent = "Erreur.";
   }
 }
+
+window.pickProduct = function(productId){
+  const p = productsCache.find(x=>String(x.ProductID)===String(productId));
+  if(!p){ showErr("Produit introuvable."); return; }
+
+  $("pf_id").value = String(p.ProductID||"");
+  $("pf_name").value = String(p.Nom||"");
+  $("pf_price").value = Number(p.Prix||0);
+  $("pf_stock").value = Number(p.Stock||0);
+  $("pf_order").value = (p.Ordre!==undefined && p.Ordre!==null) ? String(p.Ordre) : "";
+  $("pf_active").value = (String(p.Actif||"TRUE").toUpperCase() === "FALSE") ? "FALSE" : "TRUE";
+  $("pf_catNew").value = "";
+  $("pf_catSelect").value = String(p.Categorie||"");
+
+  $("stock_pid").value = String(p.ProductID||"");
+  $("stock_value").value = Number(p.Stock||0);
+
+  toast("Produit sélectionné ✅");
+};
+
 $("reloadProductsBtn").addEventListener("click", loadProducts);
+$("reloadCatsBtn").addEventListener("click", loadCategories);
+
+$("clearFormBtn").addEventListener("click", ()=>{
+  ["pf_id","pf_name","pf_catNew","pf_price","pf_stock","pf_order"].forEach(id=>$(id).value="");
+  $("pf_catSelect").value="";
+  $("pf_active").value="TRUE";
+  toast("Formulaire vidé ✅");
+});
+
+$("fillFromSelectedBtn").addEventListener("click", ()=>{
+  const pid = $("pf_id").value.trim();
+  if(!pid){ showErr("Mets ProductID d'abord, ou clique Sélectionner."); return; }
+  const p = productsCache.find(x=>String(x.ProductID)===String(pid));
+  if(!p){ showErr("Produit introuvable dans la liste."); return; }
+  window.pickProduct(pid);
+});
+
+$("saveProductBtn").addEventListener("click", async ()=>{
+  try{
+    const k = $("adminKey").value.trim();
+    const ProductID = $("pf_id").value.trim();
+    const Nom = $("pf_name").value.trim();
+    if(!ProductID) throw new Error("ProductID obligatoire.");
+    if(!Nom) throw new Error("Nom obligatoire.");
+
+    const catNew = $("pf_catNew").value.trim();
+    const catSel = $("pf_catSelect").value.trim();
+    const Categorie = catNew || catSel || "";
+
+    const Prix = Number($("pf_price").value || 0);
+    const Stock = Number($("pf_stock").value || 0);
+    const Ordre = ($("pf_order").value.trim()==="") ? 9999 : Number($("pf_order").value);
+    const Actif = $("pf_active").value;
+
+    const product = { ProductID, Nom, Categorie, Prix, Stock, Ordre, Actif };
+
+    const r = await apiJsonp("admin_upsertProduct", { k, product: JSON.stringify(product) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_upsertProduct");
+
+    toast("Produit enregistré ✅");
+    await loadCategories();
+    await loadProducts();
+
+  }catch(e){
+    showErr(e.message || e);
+  }
+});
+
+$("setStockBtn").addEventListener("click", async ()=>{
+  try{
+    const k = $("adminKey").value.trim();
+    const productId = $("stock_pid").value.trim();
+    const stock = $("stock_value").value;
+    if(!productId) throw new Error("ProductID manquant.");
+    if(stock === "" || stock === null || stock === undefined) throw new Error("Stock manquant.");
+
+    const r = await apiJsonp("admin_updateStock", { k, productId, stock: String(stock) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_updateStock");
+
+    toast("Stock mis à jour ✅");
+    loadProducts();
+  }catch(e){
+    showErr(e.message || e);
+  }
+});
 
 /***************
  * Place order (submitOrderLite + getProducts)
@@ -677,8 +949,7 @@ window.placeRm = function(pid){
   renderPlaceCart();
 };
 window.placeAdd = function(pid){
-  const k = String(pid);
-  placeCart[k] = (Number(placeCart[k]||0) + 1);
+  placeCart[String(pid)] = (Number(placeCart[String(pid)]||0) + 1);
   renderPlaceCart();
 };
 
@@ -781,6 +1052,7 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
     renderPlaceCart();
 
     loadMenuForPlace();
+    loadOrders(); // ✅ pour voir la commande apparaître
 
   }catch(e){
     showErr(e.message || e);
@@ -791,6 +1063,16 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
  * Boot
  ***************/
 (function(){
+  // ✅ ADMIN KEY auto + persist
+  const k = getAdminKey();
+  $("adminKey").value = k;
+  setAdminKey(k);
+
+  // si tu changes manuellement, on sauvegarde aussi
+  $("adminKey").addEventListener("input", ()=>{
+    setAdminKey($("adminKey").value.trim());
+  });
+
   syncPlaceAddr();
   loadOrders();
 })();
