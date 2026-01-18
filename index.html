@@ -183,11 +183,7 @@
       background: linear-gradient(90deg, #111, #2b1b16);
       color:#fff; border:none;
     }
-    .btn[disabled]{
-      opacity:.55;
-      cursor:not-allowed;
-      filter:saturate(.9);
-    }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed; filter:saturate(.9); }
 
     .cartBody{padding:14px}
     .hr{height:1px; background: rgba(93,64,55,.10); margin:12px 0}
@@ -263,6 +259,7 @@
     .payRow input{ width:auto; margin-top:3px; }
     .payMeta{ font-size:13px; color:#2b1b16; }
     .payMeta b{ font-weight:1000; }
+
     .preview{
       margin-top:8px;
       border-radius:14px;
@@ -304,7 +301,7 @@
         <div class="row">
           <div>
             <div style="font-weight:1000;font-size:18px">Menu</div>
-            <div class="muted">Produits disponibles (mode statique)</div>
+            <div class="muted">GitHub Pages (mobile rapide)</div>
           </div>
           <div style="max-width:260px; width:100%">
             <select id="catFilter"></select>
@@ -423,7 +420,13 @@
 
 <script>
   /*********************
+   * ✅ CONFIG: URL WEBAPP APPS SCRIPT
+   *********************/
+  const ENDPOINT = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec";
+
+  /*********************
    * PRODUITS (STATIC)
+   * 👉 Remplace cette liste par ta vraie liste si besoin.
    *********************/
   const STATIC_PRODUCTS = [
     { ProductID:"1", Nom:"Cornet (Pack de 6)", Prix:1250, Description:"", Categorie:"Nourriture" },
@@ -442,7 +445,7 @@
 
   function norm(s){ return String(s||"").toLowerCase().trim(); }
 
-  // ✅ format: 1,250.00 HTG
+  // ✅ 1,250.00 HTG
   function moneyHTG(x){
     const n = Number(x||0);
     const s = n.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 });
@@ -711,11 +714,16 @@
       state.paymentProofBase64 = "";
 
       const f = $("paymentProof").files && $("paymentProof").files[0];
-      if(!f){ $("proofPreview").style.display="none"; validateCheckoutBtn(); return; }
+      if(!f){
+        $("proofPreview").style.display="none";
+        validateCheckoutBtn();
+        return;
+      }
 
-      // max 3MB pour éviter timeout Apps Script
-      if (f.size > 3 * 1024 * 1024) {
-        showErr("Image trop grande. Maximum 3MB.");
+      // ✅ limite: 2MB (sinon Apps Script peut timeout)
+      const maxMB = 2;
+      if (f.size > maxMB * 1024 * 1024) {
+        showErr("Image trop grande. Maximum " + maxMB + "MB.");
         $("paymentProof").value = "";
         $("proofPreview").style.display="none";
         validateCheckoutBtn();
@@ -742,16 +750,36 @@
   }
 
   /*********************
-   * SUBMIT ORDER (google.script.run)
+   * POST → APPS SCRIPT
    *********************/
-  function gsCall(fn, payload){
-    return new Promise((resolve, reject)=>{
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject)[fn](payload);
+  async function submitOrderToAppsScript(payload){
+    if(!ENDPOINT || ENDPOINT.includes("PASTE_YOUR")) {
+      throw new Error("ENDPOINT non configuré. Colle l'URL /exec de ton WebApp Apps Script.");
+    }
+
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "submitOrder", payload })
     });
+
+    // Apps Script renvoie parfois text/plain => on lit en texte puis JSON
+    const txt = await res.text();
+    let data;
+    try { data = JSON.parse(txt); } catch(_) { data = null; }
+
+    if(!res.ok){
+      throw new Error("Erreur réseau (" + res.status + ")");
+    }
+    if(!data){
+      throw new Error("Réponse serveur invalide");
+    }
+    return data;
   }
 
+  /*********************
+   * CHECKOUT
+   *********************/
   async function checkout(){
     try{
       hideErr(); clearToast();
@@ -797,14 +825,15 @@
         return;
       }
 
-      // ✅ Appel serveur interne: plus de JSONP / API_URL
-      const r = await gsCall("submitOrder", payload);
+      const r = await submitOrderToAppsScript(payload);
 
-      if(!r || !r.ok) throw new Error((r && r.error) ? r.error : "Erreur submitOrder");
+      if(!r || !r.ok){
+        throw new Error((r && (r.error||r.message)) ? (r.error||r.message) : "Erreur submitOrder");
+      }
 
       toast(`Commande envoyée ✅ Total: ${moneyHTG(r.total)}`);
 
-      // reset
+      // Reset
       clearCart();
       renderCart();
       $("noteCommande").value = "";
@@ -816,6 +845,8 @@
       document.querySelectorAll('input[name="paymentMethod"]').forEach(x=> x.checked=false);
       syncAddressVisibility();
       validateCheckoutBtn();
+
+      setTimeout(clearToast, 2500);
 
     }catch(e){
       showErr(e.message || e);
@@ -845,3 +876,5 @@
 
 </body>
 </html>
+
+
