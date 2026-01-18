@@ -22,7 +22,6 @@
     .row { display:flex; gap:8px; flex-wrap:wrap; }
     .row > div { flex: 1; min-width: 160px; }
     input, select, textarea { padding:8px; width:100%; border:1px solid #ccc; border-radius:8px; }
-    textarea { min-height: 70px; }
     button { padding:8px 12px; border:1px solid #bbb; border-radius:8px; cursor:pointer; background:#fff; }
     button.primary { background:#111; color:#fff; border-color:#111; }
     button.small { padding:6px 10px; font-size:13px; }
@@ -34,28 +33,25 @@
     .toast { position:fixed; right:12px; bottom:12px; background:#111; color:#fff; padding:10px 12px; border-radius:10px; display:none; }
   </style>
 </head>
-
 <body>
 
 <h1>🍔 BES Fast Food – Admin</h1>
 
 <nav>
-  <button id="tabOrders" class="active" onclick="show('orders')">📦 Commandes</button>
-  <button id="tabProducts" onclick="show('products')">🍟 Produits</button>
-  <button id="tabDash" onclick="show('dash')">📊 Dashboard</button>
+  <button id="tabOrders" class="active" onclick="showTab('orders')">📦 Commandes</button>
+  <button id="tabProducts" onclick="showTab('products')">🍟 Produits</button>
+  <button id="tabDash" onclick="showTab('dash')">📊 Dashboard</button>
 </nav>
 
 <div class="bar">
   <span class="pill">Auto-refresh: <b id="autoState">ON</b></span>
   <button class="small" onclick="toggleAuto()">⏱️ Toggle</button>
   <button class="small" onclick="testBeep()">🔔 Test son</button>
-  <span class="muted">Ouvre avec <b>#k=TA_CLE</b> (lien secret)</span>
+  <span class="muted">Ouvre avec <b>#k=TA_CLE</b></span>
 </div>
 
-<!-- ================= COMMANDES ================= -->
 <section id="orders" class="active">
   <h2>📦 Commandes</h2>
-
   <div class="bar">
     <button class="primary" onclick="loadOrders(true)">🔄 Rafraîchir</button>
     <select id="statusFilter" onchange="loadOrders(true)" style="max-width:220px">
@@ -67,18 +63,17 @@
     </select>
     <span class="pill">Dernière sync: <b id="lastSync">-</b></span>
   </div>
-
   <div id="ordersMsg"></div>
   <table id="ordersTable"></table>
 </section>
 
-<!-- ================= PRODUITS ================= -->
 <section id="products">
   <h2>🍟 Produits</h2>
 
   <div class="bar">
     <button class="primary" onclick="loadProducts()">🔄 Charger Produits</button>
     <button onclick="clearForm()">➕ Nouveau</button>
+    <span id="prodMsg"></span>
   </div>
 
   <h3>➕ Ajouter / Modifier (dropdown éditable)</h3>
@@ -110,7 +105,6 @@
   <div class="bar">
     <button class="primary" onclick="saveProduct()">💾 Enregistrer</button>
     <button onclick="deactivateProduct()">🚫 Désactiver</button>
-    <span id="prodMsg"></span>
   </div>
 
   <h3>📋 Liste (stock modifiable “lite”)</h3>
@@ -118,7 +112,6 @@
   <table id="productsTable"></table>
 </section>
 
-<!-- ================= DASHBOARD ================= -->
 <section id="dash">
   <h2>📊 Dashboard (Aujourd’hui)</h2>
   <div class="bar">
@@ -151,411 +144,484 @@
 <div class="toast" id="toast"></div>
 
 <script>
-/************ CONFIG ************/
-const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec"; // <-- remplace par https://script.google.com/macros/s/XXXX/exec
-let ADMIN_KEY = "";
+  // ===== CONFIG =====
+  var API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec"; // <-- remplace
+  var ADMIN_KEY = "";
 
-/************ STATE ************/
-let AUTO_ON = true;
-let AUTO_MS = 12000;
-let autoTimer = null;
+  // ===== STATE =====
+  var AUTO_ON = true;
+  var AUTO_MS = 12000;
+  var autoTimer = null;
 
-let lastOrderIds = new Set(JSON.parse(localStorage.getItem("bes_admin_last_ids") || "[]"));
-let lastOrdersCache = [];
-let productsCache = [];
+  var lastOrderIdsArr = [];
+  try { lastOrderIdsArr = JSON.parse(localStorage.getItem("bes_admin_last_ids") || "[]"); } catch(e){ lastOrderIdsArr = []; }
 
-/************ INIT ************/
-(function init(){
-  const hash = location.hash || "";
-  const m = hash.match(/k=([^&]+)/);
-  if (m) ADMIN_KEY = decodeURIComponent(m[1] || "");
-  if (!ADMIN_KEY) alert("Lien admin invalide : ajoute #k=TA_CLE à l’URL");
+  var lastOrdersCache = [];
+  var productsCache = [];
 
-  startAuto();
-  loadOrders(true);
-})();
+  // ===== INIT =====
+  (function(){
+    ADMIN_KEY = getKeyFromHash();
+    if (!ADMIN_KEY) alert("Lien admin invalide : ajoute #k=TA_CLE à l’URL");
 
-/************ UI ************/
-function show(id){
-  document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-
-  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
-  if (id === "orders") tabOrders.classList.add("active");
-  if (id === "products") tabProducts.classList.add("active");
-  if (id === "dash") tabDash.classList.add("active");
-
-  if (id === "products") loadProducts();
-  if (id === "dash") renderDashboardFromCache();
-}
-
-function toast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.style.display = "block";
-  setTimeout(()=> t.style.display="none", 2500);
-}
-
-/************ JSONP ************/
-function jsonp(action, params, cb){
-  const callback = "cb_" + Math.random().toString(36).slice(2);
-  params = params || {};
-  params.action = action;
-  params.k = ADMIN_KEY;
-  params.callback = callback;
-
-  const q = Object.keys(params).map(k=>k+"="+encodeURIComponent(params[k])).join("&");
-  const s = document.createElement("script");
-  s.src = API_URL + "?" + q;
-
-  const timeout = setTimeout(()=>{
-    try { delete window[callback]; } catch(e){}
-    try { s.remove(); } catch(e){}
-    cb({ ok:false, error:"Timeout API" });
-  }, 15000);
-
-  window[callback] = function(res){
-    clearTimeout(timeout);
-    delete window[callback];
-    s.remove();
-    cb(res);
-  };
-
-  document.body.appendChild(s);
-}
-
-/************ AUTO REFRESH ************/
-function startAuto(){
-  stopAuto();
-  if (!AUTO_ON) { autoState.textContent = "OFF"; return; }
-  autoState.textContent = "ON";
-  autoTimer = setInterval(()=> loadOrders(false), AUTO_MS);
-}
-
-function stopAuto(){
-  if (autoTimer) clearInterval(autoTimer);
-  autoTimer = null;
-}
-
-function toggleAuto(){
-  AUTO_ON = !AUTO_ON;
-  startAuto();
-  toast("Auto-refresh: " + (AUTO_ON ? "ON" : "OFF"));
-}
-
-/************ SOUND ************/
-function beep(){
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.type = "sine";
-    o.frequency.value = 880;
-    g.gain.value = 0.06;
-    o.start();
-    setTimeout(()=>{ o.stop(); ctx.close(); }, 160);
-  } catch(e){}
-}
-function testBeep(){ beep(); toast("Test son 🔔"); }
-
-/************ COMMANDES ************/
-function loadOrders(manual){
-  const status = document.getElementById("statusFilter").value || "";
-  const params = {};
-  if (status) params.status = status;
-
-  jsonp("admin_listOrders", params, res=>{
-    lastSync.textContent = new Date().toLocaleTimeString();
-
-    const el = document.getElementById("ordersTable");
-    if (!res.ok) {
-      ordersMsg.innerHTML = "<span class='err'>" + (res.error || res.message || "Erreur") + "</span>";
-      el.innerHTML = "<tr><td>" + (res.error || res.message || "Erreur") + "</td></tr>";
-      return;
-    }
-    ordersMsg.innerHTML = "";
-
-    const orders = Array.isArray(res.orders) ? res.orders : [];
-    lastOrdersCache = orders;
-
-    // nouvelles commandes (Reçue)
-    const newIds = [];
-    for (const o of orders) {
-      const id = String(o.OrderID || o.orderId || "").trim();
-      if (id && !lastOrderIds.has(id) && String(o.Statut||"") === "Reçue") newIds.push(id);
-    }
-    if (newIds.length > 0) {
-      beep();
-      toast("Nouvelle commande (" + newIds.length + ") ✅");
-    }
-
-    // mémoriser ids
-    const seenNow = new Set([...lastOrderIds]);
-    orders.forEach(o=>{
-      const id = String(o.OrderID || o.orderId || "").trim();
-      if (id) seenNow.add(id);
-    });
-    lastOrderIds = seenNow;
-    localStorage.setItem("bes_admin_last_ids", JSON.stringify(Array.from(lastOrderIds)));
-
-    // render table
-    let html = "<tr><th>Date</th><th>Client</th><th>Téléphone</th><th>Type</th><th>Total</th><th>Statut</th><th>Résumé</th><th>Actions</th></tr>";
-    orders.forEach(o=>{
-      const oid = String(o.OrderID || "").trim();
-      const stat = String(o.Statut || "");
-      const rowClass = (stat === "Reçue") ? "new" : "";
-      const resume = o.ResumeItems || (o.items ? o.items.map(it=> (it.Nom||"")+"("+ (it.Quantite||0) +")").join(", ") : "");
-      html += "<tr class='" + rowClass + "'>" +
-        "<td>" + esc(fmtDate(o.DateHeure)) + "</td>" +
-        "<td><b>" + esc(o.ClientNom || "") + "</b><br><span class='muted'>" + esc(o.Adresse || "") + "</span></td>" +
-        "<td>" + esc(o.Telephone || "") + "</td>" +
-        "<td>" + esc(o.TypeCommande || "") + "</td>" +
-        "<td>" + esc(o.Total || "") + "</td>" +
-        "<td>" + esc(stat) + "</td>" +
-        "<td>" + esc(resume || "") + "</td>" +
-        "<td>" +
-          "<button class='small' onclick=\"setStatus('" + oid + "','Prête')\">Prête</button> " +
-          "<button class='small' onclick=\"setStatus('" + oid + "','Terminée')\">Terminée</button> " +
-          "<button class='small' onclick=\"setStatus('" + oid + "','Annulée')\">Annuler</button> " +
-          "<button class='small' onclick=\"printTicket('" + oid + "')\">🖨 Ticket</button>" +
-        "</td>" +
-      "</tr>";
-    });
-    el.innerHTML = html;
-
-    renderDashboardFromCache();
-  });
-}
-
-function setStatus(orderId, status){
-  jsonp("admin_setOrderStatus", { orderId: orderId, status: status }, res=>{
-    if (!res.ok) return toast("Erreur: " + (res.error || res.message || "status"));
-    toast("Statut → " + status);
+    startAuto();
     loadOrders(true);
-  });
-}
+  })();
 
-/************ TICKET ************/
-function printTicket(orderId){
-  const o = (lastOrdersCache || []).find(x => String(x.OrderID||"") === String(orderId));
-  if (!o) { toast("Commande introuvable"); return; }
-
-  const items = Array.isArray(o.items) ? o.items : [];
-  const w = window.open("", "_blank", "width=380,height=700");
-  if (!w) { alert("Popup bloquée. Autorise les popups pour imprimer."); return; }
-
-  let rows = "";
-  for (const it of items) {
-    rows += "<tr>" +
-      "<td>" + esc(it.Nom || "") + "</td>" +
-      "<td style='text-align:right'>" + esc(it.Quantite || 0) + "</td>" +
-      "<td style='text-align:right'>" + esc(it.SousTotal || "") + "</td>" +
-    "</tr>";
+  function getKeyFromHash(){
+    var h = window.location.hash || "";
+    var m = h.match(/k=([^&]+)/);
+    if (!m) return "";
+    try { return decodeURIComponent(m[1]); } catch(e){ return m[1]; }
   }
 
-  w.document.write(
-`<html><head><meta charset="utf-8"/>
-<title>Ticket ${esc(orderId)}</title>
-<style>
-body{ font-family: Arial, sans-serif; margin:12px; }
-h2{ margin:0 0 6px; }
-.muted{ color:#666; font-size:12px; }
-table{ width:100%; border-collapse:collapse; margin-top:8px; }
-td,th{ border-bottom:1px dashed #ccc; padding:6px 0; font-size:13px; }
-.tot{ font-size:16px; font-weight:700; margin-top:10px; }
-.hr{ border-top:1px solid #000; margin:10px 0; }
-</style></head><body>
-<h2>BES Fast Food</h2>
-<div class="muted">Ticket cuisine</div>
-<div class="hr"></div>
-<div><b>Commande:</b> ${esc(orderId)}</div>
-<div><b>Date:</b> ${esc(fmtDate(o.DateHeure))}</div>
-<div><b>Client:</b> ${esc(o.ClientNom || "")}</div>
-<div><b>Tél:</b> ${esc(o.Telephone || "")}</div>
-<div><b>Type:</b> ${esc(o.TypeCommande || "")}</div>
-${String(o.TypeCommande||"").toLowerCase()==="livraison" ? `<div><b>Adresse:</b> ${esc(o.Adresse||"")}</div>` : ""}
-${o.NoteCommande ? `<div><b>Note:</b> ${esc(o.NoteCommande)}</div>` : ""}
-<div class="hr"></div>
-<table>
-<tr><th>Produit</th><th style="text-align:right">Qté</th><th style="text-align:right">Sous-total</th></tr>
-${rows || "<tr><td colspan='3'>Aucun item</td></tr>"}
-</table>
-<div class="tot">TOTAL: ${esc(o.Total || 0)} HTG</div>
-<script>window.onload=()=>{window.print();};</script>
-</body></html>`
-  );
-  w.document.close();
-}
+  function showTab(id){
+    var secs = document.querySelectorAll("section");
+    for (var i=0;i<secs.length;i++) secs[i].classList.remove("active");
+    document.getElementById(id).classList.add("active");
 
-/************ PRODUITS ************/
-function loadProducts(){
-  jsonp("admin_listProducts", {}, res=>{
-    const el = document.getElementById("productsTable");
-    if (!res.ok) { el.innerHTML = "<tr><td>"+esc(res.error||res.message||"Erreur")+"</td></tr>"; return; }
+    document.getElementById("tabOrders").classList.remove("active");
+    document.getElementById("tabProducts").classList.remove("active");
+    document.getElementById("tabDash").classList.remove("active");
 
-    productsCache = Array.isArray(res.products) ? res.products : [];
+    if (id==="orders") document.getElementById("tabOrders").classList.add("active");
+    if (id==="products") document.getElementById("tabProducts").classList.add("active");
+    if (id==="dash") document.getElementById("tabDash").classList.add("active");
 
-    // datalists
-    const catSet = new Set();
-    const pidList = [];
-    productsCache.forEach(p=>{
-      pidList.push(String(p.ProductID||""));
-      if (p.Categorie) catSet.add(String(p.Categorie));
-    });
-    document.getElementById("catList").innerHTML =
-      Array.from(catSet).sort().map(c=>"<option value=\"" + escAttr(c) + "\"></option>").join("");
-    document.getElementById("prodIdList").innerHTML =
-      pidList.map(id=>"<option value=\"" + escAttr(id) + "\"></option>").join("");
+    if (id==="products") loadProducts();
+    if (id==="dash") renderDashboardFromCache();
+  }
 
-    // table (SANS template literals, stable)
-    let html = "<tr><th>ID</th><th>Nom</th><th>Cat.</th><th>Prix</th><th>Stock</th><th>Maj stock</th></tr>";
+  function toast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    setTimeout(function(){ t.style.display="none"; }, 2500);
+  }
 
-    productsCache.forEach((p, idx) => {
-      const pid = String(p.ProductID || "");
-      html +=
-        "<tr class='prodRow' data-idx='" + idx + "'>" +
-          "<td><b>" + esc(pid) + "</b></td>" +
-          "<td>" + esc(p.Nom || "") + "</td>" +
-          "<td>" + esc(p.Categorie || "") + "</td>" +
-          "<td>" + esc(p.Prix || 0) + "</td>" +
-          "<td>" + esc(p.Stock || 0) + "</td>" +
+  // ===== JSONP =====
+  function jsonp(action, params, cb){
+    params = params || {};
+    var callback = "cb_" + Math.random().toString(36).slice(2);
+
+    params.action = action;
+    params.k = ADMIN_KEY;
+    params.callback = callback;
+
+    var q = [];
+    for (var k in params) {
+      if (params.hasOwnProperty(k)) q.push(k + "=" + encodeURIComponent(params[k]));
+    }
+
+    var s = document.createElement("script");
+    s.src = API_URL + "?" + q.join("&");
+
+    var done = false;
+    var timeout = setTimeout(function(){
+      if (done) return;
+      done = true;
+      try { delete window[callback]; } catch(e){}
+      try { s.parentNode.removeChild(s); } catch(e){}
+      cb({ ok:false, error:"Timeout API" });
+    }, 15000);
+
+    window[callback] = function(res){
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      try { delete window[callback]; } catch(e){}
+      try { s.parentNode.removeChild(s); } catch(e){}
+      cb(res);
+    };
+
+    document.body.appendChild(s);
+  }
+
+  // ===== AUTO =====
+  function startAuto(){
+    stopAuto();
+    if (!AUTO_ON) { document.getElementById("autoState").textContent = "OFF"; return; }
+    document.getElementById("autoState").textContent = "ON";
+    autoTimer = setInterval(function(){ loadOrders(false); }, AUTO_MS);
+  }
+  function stopAuto(){
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = null;
+  }
+  function toggleAuto(){
+    AUTO_ON = !AUTO_ON;
+    startAuto();
+    toast("Auto-refresh: " + (AUTO_ON ? "ON" : "OFF"));
+  }
+
+  // ===== SOUND =====
+  function beep(){
+    try {
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      var ctx = new AudioCtx();
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = "sine";
+      o.frequency.value = 880;
+      g.gain.value = 0.06;
+      o.start();
+      setTimeout(function(){
+        try { o.stop(); } catch(e){}
+        try { ctx.close(); } catch(e){}
+      }, 160);
+    } catch(e){}
+  }
+  function testBeep(){ beep(); toast("Test son 🔔"); }
+
+  // ===== COMMANDES =====
+  function loadOrders(manual){
+    var status = document.getElementById("statusFilter").value || "";
+    var params = {};
+    if (status) params.status = status;
+
+    jsonp("admin_listOrders", params, function(res){
+      document.getElementById("lastSync").textContent = (new Date()).toLocaleTimeString();
+
+      var ordersMsg = document.getElementById("ordersMsg");
+      var el = document.getElementById("ordersTable");
+
+      if (!res || !res.ok) {
+        var msg = (res && (res.error || res.message)) ? (res.error || res.message) : "Erreur";
+        ordersMsg.innerHTML = "<span class='err'>" + esc(msg) + "</span>";
+        el.innerHTML = "<tr><td>" + esc(msg) + "</td></tr>";
+        return;
+      }
+
+      ordersMsg.innerHTML = "";
+      var orders = res.orders && res.orders.length ? res.orders : [];
+      lastOrdersCache = orders;
+
+      // detect new "Reçue"
+      var newCount = 0;
+      for (var i=0;i<orders.length;i++){
+        var o = orders[i];
+        var id = String(o.OrderID || o.orderId || "");
+        var stat = String(o.Statut || "");
+        if (id && stat==="Reçue" && !arrayHas(lastOrderIdsArr, id)) newCount++;
+      }
+      if (newCount > 0) { beep(); toast("Nouvelle commande (" + newCount + ") ✅"); }
+
+      // store ids
+      for (var j=0;j<orders.length;j++){
+        var oid = String(orders[j].OrderID || orders[j].orderId || "");
+        if (oid && !arrayHas(lastOrderIdsArr, oid)) lastOrderIdsArr.push(oid);
+      }
+      try { localStorage.setItem("bes_admin_last_ids", JSON.stringify(lastOrderIdsArr)); } catch(e){}
+
+      // render table
+      var html = "<tr><th>Date</th><th>Client</th><th>Téléphone</th><th>Type</th><th>Total</th><th>Statut</th><th>Résumé</th><th>Actions</th></tr>";
+      for (var k=0;k<orders.length;k++){
+        var x = orders[k];
+        var orderId = String(x.OrderID || "");
+        var st = String(x.Statut || "");
+        var rowClass = (st==="Reçue") ? "new" : "";
+
+        var resume = x.ResumeItems || "";
+        if (!resume && x.items && x.items.length){
+          var parts = [];
+          for (var t=0;t<x.items.length;t++){
+            var it = x.items[t];
+            parts.push((it.Nom||"") + "(" + (it.Quantite||0) + ")");
+          }
+          resume = parts.join(", ");
+        }
+
+        html += "<tr class='" + rowClass + "'>" +
+          "<td>" + esc(fmtDate(x.DateHeure)) + "</td>" +
+          "<td><b>" + esc(x.ClientNom || "") + "</b><br><span class='muted'>" + esc(x.Adresse || "") + "</span></td>" +
+          "<td>" + esc(x.Telephone || "") + "</td>" +
+          "<td>" + esc(x.TypeCommande || "") + "</td>" +
+          "<td>" + esc(x.Total || "") + "</td>" +
+          "<td>" + esc(st) + "</td>" +
+          "<td>" + esc(resume || "") + "</td>" +
           "<td>" +
-            "<input style='max-width:120px' type='number' id='stk_" + escAttr(pid) + "' value='" + escAttr(p.Stock || 0) + "' onclick='event.stopPropagation()' /> " +
-            "<button class='small' onclick=\"event.stopPropagation(); quickStock('" + pid + "')\">OK</button>" +
+            "<button class='small' onclick=\"setStatus('" + escAttr(orderId) + "','Prête')\">Prête</button> " +
+            "<button class='small' onclick=\"setStatus('" + escAttr(orderId) + "','Terminée')\">Terminée</button> " +
+            "<button class='small' onclick=\"setStatus('" + escAttr(orderId) + "','Annulée')\">Annuler</button> " +
+            "<button class='small' onclick=\"printTicket('" + escAttr(orderId) + "')\">🖨 Ticket</button>" +
           "</td>" +
         "</tr>";
+      }
+      el.innerHTML = html;
+
+      renderDashboardFromCache();
     });
-
-    el.innerHTML = html;
-
-    // click ligne → remplir formulaire
-    document.querySelectorAll("#productsTable .prodRow").forEach(tr => {
-      tr.addEventListener("click", () => {
-        const i = Number(tr.dataset.idx);
-        fillProduct(productsCache[i]);
-      });
-    });
-
-    prodMsg.innerHTML = "<span class='ok'>Produits chargés ✅</span>";
-  });
-}
-
-function fillProduct(p){
-  pId.value = p.ProductID || "";
-  pName.value = p.Nom || "";
-  pCat.value = p.Categorie || "";
-  pPrice.value = p.Prix || 0;
-  pStock.value = p.Stock || 0;
-}
-
-function clearForm(){
-  pId.value = "";
-  pName.value = "";
-  pCat.value = "";
-  pPrice.value = "";
-  pStock.value = "";
-  prodMsg.innerHTML = "";
-}
-
-function saveProduct(){
-  const product = {
-    ProductID: (pId.value || "").trim(),
-    Nom: (pName.value || "").trim(),
-    Categorie: (pCat.value || "").trim(),
-    Prix: Number(pPrice.value || 0),
-    Stock: Number(pStock.value || 0)
-  };
-  if (!product.ProductID || !product.Nom) {
-    prodMsg.innerHTML = "<span class='err'>ProductID et Nom obligatoires</span>";
-    return;
   }
-  jsonp("admin_upsertProduct", { product: JSON.stringify(product) }, res=>{
-    prodMsg.innerHTML = res.ok ? "<span class='ok'>Enregistré ✅</span>" : "<span class='err'>"+esc(res.error||res.message||"Erreur")+"</span>";
-    loadProducts();
-  });
-}
 
-function deactivateProduct(){
-  const pid = (pId.value || "").trim();
-  if (!pid) { prodMsg.innerHTML = "<span class='err'>Entre ProductID</span>"; return; }
-  if (!confirm("Désactiver " + pid + " ?")) return;
-  jsonp("admin_deleteProduct", { productId: pid }, res=>{
-    prodMsg.innerHTML = res.ok ? "<span class='ok'>Désactivé ✅</span>" : "<span class='err'>"+esc(res.error||res.message||"Erreur")+"</span>";
-    loadProducts();
-  });
-}
-
-function quickStock(productId){
-  const inp = document.getElementById("stk_" + productId);
-  const stock = Number(inp.value || 0);
-  jsonp("admin_updateStock", { productId: productId, stock: stock }, res=>{
-    if (!res.ok) return toast("Erreur stock: " + (res.error||res.message||""));
-    toast("Stock OK ✅");
-    loadProducts();
-  });
-}
-
-/************ DASHBOARD ************/
-function renderDashboardFromCache(){
-  const orders = Array.isArray(lastOrdersCache) ? lastOrdersCache : [];
-  const todayKey = (new Date()).toISOString().slice(0,10);
-
-  const todays = orders.filter(o=>{
-    const d = parseDateAny(o.DateHeure);
-    if (!d) return false;
-    return d.toISOString().slice(0,10) === todayKey;
-  });
-
-  const count = todays.length;
-  const total = todays.reduce((s,o)=> s + Number(o.Total||0), 0);
-
-  let itemsQty = 0;
-  const byName = new Map();
-  todays.forEach(o=>{
-    const items = Array.isArray(o.items) ? o.items : [];
-    items.forEach(it=>{
-      const name = String(it.Nom||"").trim() || String(it.ProductID||"").trim();
-      const q = Number(it.Quantite||0);
-      if (!name) return;
-      itemsQty += q;
-      byName.set(name, (byName.get(name)||0) + q);
+  function setStatus(orderId, status){
+    jsonp("admin_setOrderStatus", { orderId: orderId, status: status }, function(res){
+      if (!res || !res.ok) return toast("Erreur: " + (res && (res.error||res.message) ? (res.error||res.message) : "status"));
+      toast("Statut → " + status);
+      loadOrders(true);
     });
-  });
+  }
 
-  dOrders.textContent = String(count);
-  dOrdersSub.textContent = "Date: " + todayKey;
-  dTotal.textContent = String(total);
-  dItems.textContent = String(itemsQty);
+  function printTicket(orderId){
+    var o = null;
+    for (var i=0;i<lastOrdersCache.length;i++){
+      if (String(lastOrdersCache[i].OrderID||"") === String(orderId)) { o = lastOrdersCache[i]; break; }
+    }
+    if (!o) { toast("Commande introuvable"); return; }
 
-  const top = Array.from(byName.entries()).sort((a,b)=> b[1]-a[1]).slice(0, 15);
-  let html = "<tr><th>Produit</th><th>Quantité</th></tr>";
-  if (top.length === 0) html += "<tr><td colspan='2'>Aucune vente aujourd’hui</td></tr>";
-  else top.forEach(([n,q])=>{
-    html += "<tr><td>" + esc(n) + "</td><td>" + esc(q) + "</td></tr>";
-  });
-  topTable.innerHTML = html;
-}
+    var items = (o.items && o.items.length) ? o.items : [];
+    var w = window.open("", "_blank", "width=380,height=700");
+    if (!w) { alert("Popup bloquée. Autorise les popups pour imprimer."); return; }
 
-/************ HELPERS ************/
-function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
-function escAttr(s){ return String(s ?? "").replace(/"/g,"&quot;"); }
+    var rows = "";
+    for (var j=0;j<items.length;j++){
+      var it = items[j];
+      rows += "<tr>" +
+        "<td>" + esc(it.Nom || "") + "</td>" +
+        "<td style='text-align:right'>" + esc(it.Quantite || 0) + "</td>" +
+        "<td style='text-align:right'>" + esc(it.SousTotal || "") + "</td>" +
+      "</tr>";
+    }
+    if (!rows) rows = "<tr><td colspan='3'>Aucun item</td></tr>";
 
-function parseDateAny(v){
-  if (!v) return null;
-  if (v instanceof Date) return v;
-  const d = new Date(String(v));
-  if (isNaN(d.getTime())) return null;
-  return d;
-}
+    var isDelivery = String(o.TypeCommande||"").toLowerCase() === "livraison";
+    var addrLine = isDelivery ? ("<div><b>Adresse:</b> " + esc(o.Adresse||"") + "</div>") : "";
+    var noteLine = o.NoteCommande ? ("<div><b>Note:</b> " + esc(o.NoteCommande) + "</div>") : "";
 
-function fmtDate(v){
-  const d = parseDateAny(v);
-  if (!d) return String(v||"");
-  return d.toLocaleString();
-}
+    var page =
+      "<html><head><meta charset='utf-8'/>" +
+      "<title>Ticket " + esc(orderId) + "</title>" +
+      "<style>" +
+      "body{font-family:Arial,sans-serif;margin:12px;}h2{margin:0 0 6px;}.muted{color:#666;font-size:12px;}" +
+      "table{width:100%;border-collapse:collapse;margin-top:8px;}td,th{border-bottom:1px dashed #ccc;padding:6px 0;font-size:13px;}" +
+      ".tot{font-size:16px;font-weight:700;margin-top:10px;}.hr{border-top:1px solid #000;margin:10px 0;}" +
+      "</style></head><body>" +
+      "<h2>BES Fast Food</h2><div class='muted'>Ticket cuisine</div><div class='hr'></div>" +
+      "<div><b>Commande:</b> " + esc(orderId) + "</div>" +
+      "<div><b>Date:</b> " + esc(fmtDate(o.DateHeure)) + "</div>" +
+      "<div><b>Client:</b> " + esc(o.ClientNom||"") + "</div>" +
+      "<div><b>Tél:</b> " + esc(o.Telephone||"") + "</div>" +
+      "<div><b>Type:</b> " + esc(o.TypeCommande||"") + "</div>" +
+      addrLine + noteLine +
+      "<div class='hr'></div>" +
+      "<table><tr><th>Produit</th><th style='text-align:right'>Qté</th><th style='text-align:right'>Sous-total</th></tr>" +
+      rows +
+      "</table>" +
+      "<div class='tot'>TOTAL: " + esc(o.Total || 0) + " HTG</div>" +
+      "<script>window.onload=function(){window.print();};</" + "script>" +
+      "</body></html>";
+
+    w.document.write(page);
+    w.document.close();
+  }
+
+  // ===== PRODUITS =====
+  function loadProducts(){
+    jsonp("admin_listProducts", {}, function(res){
+      var el = document.getElementById("productsTable");
+      if (!res || !res.ok) {
+        el.innerHTML = "<tr><td>" + esc(res && (res.error||res.message) ? (res.error||res.message) : "Erreur") + "</td></tr>";
+        return;
+      }
+
+      productsCache = res.products && res.products.length ? res.products : [];
+
+      // datalists (sans Set)
+      var catObj = {};
+      var pidHtml = "";
+      for (var i=0;i<productsCache.length;i++){
+        var p = productsCache[i];
+        var pid = String(p.ProductID||"");
+        pidHtml += "<option value=\"" + escAttr(pid) + "\"></option>";
+        if (p.Categorie) catObj[String(p.Categorie)] = true;
+      }
+      document.getElementById("prodIdList").innerHTML = pidHtml;
+
+      var cats = [];
+      for (var c in catObj) if (catObj.hasOwnProperty(c)) cats.push(c);
+      cats.sort();
+      var catHtml = "";
+      for (var j=0;j<cats.length;j++) catHtml += "<option value=\"" + escAttr(cats[j]) + "\"></option>";
+      document.getElementById("catList").innerHTML = catHtml;
+
+      var html = "<tr><th>ID</th><th>Nom</th><th>Cat.</th><th>Prix</th><th>Stock</th><th>Maj stock</th></tr>";
+      for (var k=0;k<productsCache.length;k++){
+        var x = productsCache[k];
+        var id = String(x.ProductID||"");
+        html += "<tr class='prodRow' data-idx='" + k + "'>" +
+          "<td><b>" + esc(id) + "</b></td>" +
+          "<td>" + esc(x.Nom||"") + "</td>" +
+          "<td>" + esc(x.Categorie||"") + "</td>" +
+          "<td>" + esc(x.Prix||0) + "</td>" +
+          "<td>" + esc(x.Stock||0) + "</td>" +
+          "<td>" +
+            "<input style='max-width:120px' type='number' id='stk_" + escAttr(id) + "' value='" + escAttr(x.Stock||0) + "' onclick='event.stopPropagation()' /> " +
+            "<button class='small' onclick=\"event.stopPropagation(); quickStock('" + escAttr(id) + "')\">OK</button>" +
+          "</td>" +
+        "</tr>";
+      }
+      el.innerHTML = html;
+
+      // bind clicks
+      var rows = document.querySelectorAll("#productsTable .prodRow");
+      for (var r=0;r<rows.length;r++){
+        rows[r].addEventListener("click", function(){
+          var idx = Number(this.getAttribute("data-idx"));
+          fillProduct(productsCache[idx]);
+        });
+      }
+
+      document.getElementById("prodMsg").innerHTML = "<span class='ok'>Produits chargés ✅</span>";
+    });
+  }
+
+  function fillProduct(p){
+    document.getElementById("pId").value = p.ProductID || "";
+    document.getElementById("pName").value = p.Nom || "";
+    document.getElementById("pCat").value = p.Categorie || "";
+    document.getElementById("pPrice").value = p.Prix || 0;
+    document.getElementById("pStock").value = p.Stock || 0;
+  }
+
+  function clearForm(){
+    document.getElementById("pId").value = "";
+    document.getElementById("pName").value = "";
+    document.getElementById("pCat").value = "";
+    document.getElementById("pPrice").value = "";
+    document.getElementById("pStock").value = "";
+    document.getElementById("prodMsg").innerHTML = "";
+  }
+
+  function saveProduct(){
+    var pid = (document.getElementById("pId").value || "").trim();
+    var nom = (document.getElementById("pName").value || "").trim();
+    var cat = (document.getElementById("pCat").value || "").trim();
+    var prix = Number(document.getElementById("pPrice").value || 0);
+    var stock = Number(document.getElementById("pStock").value || 0);
+
+    if (!pid || !nom) {
+      document.getElementById("prodMsg").innerHTML = "<span class='err'>ProductID et Nom obligatoires</span>";
+      return;
+    }
+
+    var product = { ProductID: pid, Nom: nom, Categorie: cat, Prix: prix, Stock: stock };
+
+    jsonp("admin_upsertProduct", { product: JSON.stringify(product) }, function(res){
+      if (res && res.ok) {
+        document.getElementById("prodMsg").innerHTML = "<span class='ok'>Enregistré ✅</span>";
+        loadProducts();
+      } else {
+        document.getElementById("prodMsg").innerHTML = "<span class='err'>" + esc(res && (res.error||res.message) ? (res.error||res.message) : "Erreur") + "</span>";
+      }
+    });
+  }
+
+  function deactivateProduct(){
+    var pid = (document.getElementById("pId").value || "").trim();
+    if (!pid) { document.getElementById("prodMsg").innerHTML = "<span class='err'>Entre ProductID</span>"; return; }
+    if (!confirm("Désactiver " + pid + " ?")) return;
+
+    jsonp("admin_deleteProduct", { productId: pid }, function(res){
+      if (res && res.ok) {
+        document.getElementById("prodMsg").innerHTML = "<span class='ok'>Désactivé ✅</span>";
+        loadProducts();
+      } else {
+        document.getElementById("prodMsg").innerHTML = "<span class='err'>" + esc(res && (res.error||res.message) ? (res.error||res.message) : "Erreur") + "</span>";
+      }
+    });
+  }
+
+  function quickStock(productId){
+    var inp = document.getElementById("stk_" + productId);
+    var stock = Number((inp && inp.value) ? inp.value : 0);
+
+    jsonp("admin_updateStock", { productId: productId, stock: stock }, function(res){
+      if (!res || !res.ok) return toast("Erreur stock: " + (res && (res.error||res.message) ? (res.error||res.message) : ""));
+      toast("Stock OK ✅");
+      loadProducts();
+    });
+  }
+
+  // ===== DASHBOARD =====
+  function renderDashboardFromCache(){
+    var orders = lastOrdersCache || [];
+    var todayKey = (new Date()).toISOString().slice(0,10);
+
+    var todays = [];
+    for (var i=0;i<orders.length;i++){
+      var d = parseDateAny(orders[i].DateHeure);
+      if (d && d.toISOString().slice(0,10) === todayKey) todays.push(orders[i]);
+    }
+
+    var count = todays.length;
+    var total = 0;
+    var itemsQty = 0;
+    var byName = {}; // name -> qty
+
+    for (var j=0;j<todays.length;j++){
+      total += Number(todays[j].Total || 0);
+      var items = (todays[j].items && todays[j].items.length) ? todays[j].items : [];
+      for (var k=0;k<items.length;k++){
+        var it = items[k];
+        var name = String(it.Nom || it.ProductID || "").trim();
+        var q = Number(it.Quantite || 0);
+        if (!name) continue;
+        itemsQty += q;
+        byName[name] = (byName[name] || 0) + q;
+      }
+    }
+
+    document.getElementById("dOrders").textContent = String(count);
+    document.getElementById("dOrdersSub").textContent = "Date: " + todayKey;
+    document.getElementById("dTotal").textContent = String(total);
+    document.getElementById("dItems").textContent = String(itemsQty);
+
+    // top
+    var arr = [];
+    for (var n in byName) if (byName.hasOwnProperty(n)) arr.push([n, byName[n]]);
+    arr.sort(function(a,b){ return b[1]-a[1]; });
+
+    var topHtml = "<tr><th>Produit</th><th>Quantité</th></tr>";
+    if (!arr.length) topHtml += "<tr><td colspan='2'>Aucune vente aujourd’hui</td></tr>";
+    else {
+      var max = arr.length > 15 ? 15 : arr.length;
+      for (var t=0;t<max;t++){
+        topHtml += "<tr><td>" + esc(arr[t][0]) + "</td><td>" + esc(arr[t][1]) + "</td></tr>";
+      }
+    }
+    document.getElementById("topTable").innerHTML = topHtml;
+  }
+
+  // ===== HELPERS =====
+  function arrayHas(arr, v){
+    for (var i=0;i<arr.length;i++) if (String(arr[i]) === String(v)) return true;
+    return false;
+  }
+
+  function esc(s){
+    s = (s === undefined || s === null) ? "" : String(s);
+    return s.replace(/[&<>"']/g, function(m){
+      return ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[m];
+    });
+  }
+  function escAttr(s){
+    s = (s === undefined || s === null) ? "" : String(s);
+    return s.replace(/"/g,"&quot;");
+  }
+  function parseDateAny(v){
+    if (!v) return null;
+    if (v instanceof Date) return v;
+    var d = new Date(String(v));
+    if (isNaN(d.getTime())) return null;
+    return d;
+  }
+  function fmtDate(v){
+    var d = parseDateAny(v);
+    if (!d) return String(v || "");
+    return d.toLocaleString();
+  }
 </script>
 
 </body>
 </html>
-
