@@ -7,7 +7,6 @@
   <style>
     :root{
       --bg:#0b1220;
-      --card:#111a2e;
       --muted:#a7b0c0;
       --txt:#e9eef8;
       --line: rgba(255,255,255,.10);
@@ -86,15 +85,10 @@
       font-size:14px;
     }
     textarea{min-height:90px;resize:vertical}
-    label{font-size:12px;color:var(--muted);font-weight:900;margin:0 0 6px 2px;display:block}
-    .grid{display:grid;grid-template-columns: 2fr 1fr;gap:12px}
-    @media(max-width:900px){.grid{grid-template-columns:1fr}}
     table{width:100%;border-collapse:collapse}
     th,td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
     th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:left}
     .muted{color:var(--muted);font-size:13px}
-    .kpi{display:flex;gap:10px;flex-wrap:wrap}
-    .k{padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.05);font-weight:900}
     .toast{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(46,125,50,.25);background:rgba(46,125,50,.12);color:rgba(185,255,210,.95);font-weight:900}
     .err{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(211,47,47,.25);background:rgba(211,47,47,.12);color:rgba(255,200,200,.95);font-weight:900}
     .actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -104,6 +98,8 @@
     .badge.warn{border-color:rgba(255,193,7,.35);color:rgba(255,240,200,.95)}
     .hr{height:1px;background:var(--line);margin:12px 0}
 
+    .grid{display:grid;grid-template-columns: 2fr 1fr;gap:12px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
     .menuGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     @media(max-width:560px){.menuGrid{grid-template-columns:1fr}}
     .prod{
@@ -113,7 +109,6 @@
       padding:10px;
       display:flex;gap:10px;align-items:flex-start;justify-content:space-between;
     }
-    .prod b{display:block}
     .mini{
       padding:8px 10px;border-radius:12px;border:1px solid var(--line);
       background:rgba(255,255,255,.06);color:var(--txt);font-weight:900;cursor:pointer;
@@ -126,7 +121,7 @@
   <div class="wrap row sp">
     <div class="row">
       <div class="brand">BES Admin</div>
-      <div class="pill" id="envPill">Admin v2 • POS 80mm</div>
+      <div class="pill">Admin v2 • POS 80mm</div>
     </div>
     <div class="row">
       <button class="btn" id="refreshBtn" type="button">Actualiser</button>
@@ -144,7 +139,7 @@
       </div>
 
       <div class="row">
-        <input id="adminKey" placeholder="ADMIN KEY (obligatoire pour commandes/produits)" style="max-width:320px" />
+        <input id="adminKey" placeholder="ADMIN KEY (obligatoire pour commandes/prod)" style="max-width:340px" />
         <select id="statusFilter" style="max-width:240px">
           <option value="">Tous statuts</option>
           <option>Reçue</option>
@@ -162,12 +157,7 @@
 
       <!-- ORDERS -->
       <section id="tab-orders">
-        <div class="kpi" style="margin-bottom:12px">
-          <div class="k">Total affichées: <span id="k_count">0</span></div>
-          <div class="k">Dernière maj: <span id="k_time">-</span></div>
-        </div>
-
-        <div class="card" style="margin-top:10px">
+        <div class="card">
           <div class="content" style="padding:0">
             <table>
               <thead>
@@ -191,9 +181,15 @@
 
       <!-- PRODUCTS -->
       <section id="tab-products" style="display:none">
-        <div class="muted">Liste depuis Sheets (admin_listProducts).</div>
-        <div class="hr"></div>
-        <div id="productsBox" class="muted">Chargement…</div>
+        <div class="card">
+          <div class="cardHead">
+            <b>Produits</b>
+            <div class="row">
+              <button class="btn" id="reloadProductsBtn" type="button">Recharger</button>
+            </div>
+          </div>
+          <div class="content" id="productsBox" class="muted">Chargement…</div>
+        </div>
       </section>
 
       <!-- PLACE ORDER -->
@@ -258,7 +254,6 @@
               <textarea id="p_note" placeholder="Ex: sans piment…"></textarea>
 
               <div class="hr"></div>
-
               <div id="placeCartItems" class="muted">Panier vide</div>
 
               <div class="hr"></div>
@@ -268,10 +263,7 @@
               </div>
 
               <div style="margin-top:12px">
-                <button class="btn good" type="button" id="placeOrderBtn" disabled>Enregistrer (Sheets) + WhatsApp</button>
-                <div class="muted" style="margin-top:8px">
-                  Enregistre via <b>submitOrderLite</b> (sans image). WhatsApp s’ouvre après.
-                </div>
+                <button class="btn good" type="button" id="placeOrderBtn" disabled>Enregistrer (Sheets)</button>
               </div>
             </div>
           </div>
@@ -286,8 +278,8 @@
 /***************
  * CONFIG
  ***************/
-const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec"; // <-- ton /exec ici
-const DEFAULT_COUNTRY_CODE = "509"; // si le client met 8 chiffres, on ajoute 509
+const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec"; // <-- Mets ton lien /exec ici
+const DEFAULT_COUNTRY_CODE = "509";
 
 /***************
  * JSONP helper
@@ -362,19 +354,17 @@ function escapeHtml(s){
 function norm(s){ return String(s||"").toLowerCase().trim(); }
 
 /***************
- * WhatsApp helpers
+ * WhatsApp helpers (CLIENT)
  ***************/
 function digitsOnlyPhone(raw){
   let d = String(raw||"").replace(/\D/g,"");
-  // si 8 chiffres (Haïti), on ajoute 509
   if(d.length === 8) d = DEFAULT_COUNTRY_CODE + d;
-  // si commence par 0 et total 9/10 => on laisse tel quel (tu peux personnaliser)
   return d;
 }
-function openWhatsAppTo(phone, message){
+function openWhatsAppToClient(phone, message){
   const p = digitsOnlyPhone(phone);
   if(!p){
-    showErr("Téléphone client invalide, impossible d'ouvrir WhatsApp.");
+    showErr("Téléphone client invalide.");
     return;
   }
   const url = "https://wa.me/" + p + "?text=" + encodeURIComponent(message);
@@ -420,54 +410,49 @@ async function loadOrders(){
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listOrders");
 
     const orders = Array.isArray(r.orders) ? r.orders : [];
-    $("k_count").textContent = String(orders.length);
-    $("k_time").textContent = new Date().toLocaleString();
-
     const tb = $("ordersTbody");
+
     if(orders.length===0){
       tb.innerHTML = `<tr><td colspan="7" class="muted">Aucune commande.</td></tr>`;
       return;
     }
 
     tb.innerHTML = orders.map(o=>{
-      const date = o.DateHeure || "";
-      const clientNom = o.ClientNom || "";
-      const tel = o.Telephone || "";
       const type = o.TypeCommande || "";
-      const resume = (o.ResumeItems || "").toString() || (o.items ? o.items.map(i=>`${i.Nom} x${i.Quantite}`).join(", ") : "");
-      const total = fmtHTG(o.Total || 0);
-      const st = (o.Statut || "-");
+      const isSurPlace = /sur\s*place/i.test(type);
+      const isEmporter = /(à|a)\s*emporter/i.test(type);
 
+      const st = (o.Statut || "-");
       const badgeClass =
         /annul/i.test(st) ? "badge bad" :
         /prêt|pret/i.test(st) ? "badge good" :
         /reç/i.test(st) ? "badge warn" : "badge";
 
-      const isSurPlace = /sur\s*place/i.test(type);
-      const isEmporter = /(à|a)\s*emporter/i.test(type);
+      const safeOrderJson = JSON.stringify(o).replace(/</g,"\\u003c");
 
       return `
         <tr>
-          <td>${escapeHtml(date)}</td>
-          <td><b>${escapeHtml(clientNom)}</b><div class="muted">${escapeHtml(tel)}</div></td>
+          <td>${escapeHtml(o.DateHeure || "")}</td>
+          <td><b>${escapeHtml(o.ClientNom || "")}</b><div class="muted">${escapeHtml(o.Telephone || "")}</div></td>
           <td>${escapeHtml(type)}</td>
-          <td>${escapeHtml(resume)}</td>
-          <td><b>${total}</b></td>
+          <td>${escapeHtml((o.ResumeItems||"") + "")}</td>
+          <td><b>${fmtHTG(o.Total||0)}</b></td>
           <td><span class="${badgeClass}">${escapeHtml(st)}</span></td>
           <td>
             <div class="actions">
-              ${isSurPlace ? `<button class="btn good" type="button"
-                onclick='readyConsume(${JSON.stringify(o).replace(/</g,"\\u003c")})'>
-                Prêt à consommer
-              </button>` : ``}
+              ${isSurPlace ? `
+                <button class="btn good" type="button" onclick='readyConsume(${safeOrderJson})'>
+                  Prêt à consommer
+                </button>
+              ` : ``}
 
-              ${isEmporter ? `<button class="btn good" type="button"
-                onclick='readyTakeaway(${JSON.stringify(o).replace(/</g,"\\u003c")})'>
-                Prêt à emporter
-              </button>` : ``}
+              ${isEmporter ? `
+                <button class="btn good" type="button" onclick='readyTakeaway(${safeOrderJson})'>
+                  Prêt à emporter
+                </button>
+              ` : ``}
 
-              <button class="btn" type="button"
-                onclick='printPOS80(${JSON.stringify(o).replace(/</g,"\\u003c")})'>
+              <button class="btn" type="button" onclick='printPOS80(${safeOrderJson})'>
                 Imprimer 80mm
               </button>
 
@@ -499,41 +484,36 @@ window.setStatus = async function(orderId, status){
   }
 };
 
-// 1) Prêt à consommer + WhatsApp (sur place)
 window.readyConsume = async function(order){
   try{
     const oid = String(order.OrderID||"").trim();
     if(!oid) throw new Error("OrderID manquant");
     await setStatus(oid, "Prêt à consommer");
-
-    const msg = "Votre commande est prête à consommer. Merci d'avoir choisi Bes Fast Food!";
-    openWhatsAppTo(order.Telephone, msg);
+    openWhatsAppToClient(order.Telephone, "Votre commande est prête à consommer. Merci d'avoir choisi Bes Fast Food!");
   }catch(e){
     showErr(e.message || e);
   }
 };
 
-// 2) Prêt à emporter + WhatsApp (à emporter)
 window.readyTakeaway = async function(order){
   try{
     const oid = String(order.OrderID||"").trim();
     if(!oid) throw new Error("OrderID manquant");
     await setStatus(oid, "Prêt à emporter");
-
-    const msg = "Votre commande est prête à emporter. Merci d'avoir choisi Bes Fast Food!";
-    openWhatsAppTo(order.Telephone, msg);
+    openWhatsAppToClient(order.Telephone, "Votre commande est prête à emporter. Merci d'avoir choisi Bes Fast Food!");
   }catch(e){
     showErr(e.message || e);
   }
 };
 
 /***************
- * Print POS 80mm
+ * Print POS 80mm (✅ correction: </script> => <\/script>)
  ***************/
 window.printPOS80 = function(order){
   try{
     const items = Array.isArray(order.items) ? order.items : [];
     const resume = String(order.ResumeItems||"").trim();
+
     const rows = items.length
       ? items.map(i=>{
           const name = escapeHtml(i.Nom||"");
@@ -544,12 +524,10 @@ window.printPOS80 = function(order){
       : `<tr><td colspan="3">${escapeHtml(resume)}</td></tr>`;
 
     const w = window.open("", "_blank", "width=420,height=800");
-    w.document.write(`
-<!doctype html>
+    w.document.write(`<!doctype html>
 <html><head><meta charset="utf-8"/>
 <title>POS 80mm</title>
 <style>
-  /* 80mm POS */
   @page { size: 80mm auto; margin: 6mm; }
   body{ width:80mm; margin:0; font-family: Arial, sans-serif; color:#000; }
   .center{text-align:center}
@@ -580,11 +558,7 @@ window.printPOS80 = function(order){
 
   <div class="hr"></div>
 
-  <table>
-    <tbody>
-      ${rows}
-    </tbody>
-  </table>
+  <table><tbody>${rows}</tbody></table>
 
   <div class="hr"></div>
   <div class="tot">TOTAL: ${fmtHTG(order.Total||0)}</div>
@@ -592,11 +566,8 @@ window.printPOS80 = function(order){
   <div class="hr"></div>
   <div class="center muted small">Merci d'avoir choisi BES Fast Food!</div>
 
-  <script>
-    window.onload=()=>{ window.print(); }
-  </script>
-</body></html>
-    `);
+  <script>window.onload=function(){window.print();};<\/script>
+</body></html>`);
     w.document.close();
   }catch(e){
     showErr("Impression: " + (e.message || e));
@@ -611,30 +582,39 @@ async function loadProducts(){
     const k = $("adminKey").value.trim();
     const r = await apiJsonp("admin_listProducts", { k });
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listProducts");
+
     const list = Array.isArray(r.products) ? r.products : [];
+    if(list.length===0){
+      $("productsBox").innerHTML = `<div class="muted">Aucun produit.</div>`;
+      return;
+    }
 
     const html = list.map(p=>{
-      const actif = String(p.Actif||"TRUE").toUpperCase() !== "FALSE";
-      const stock = Number(p.Stock||0);
-      const name = escapeHtml(p.Nom||"");
-      const cat = escapeHtml(p.Categorie||"");
+      const actif = String(p.Actif || "TRUE").toUpperCase() !== "FALSE";
+      const stock = Number(p.Stock || 0);
       return `
-        <div class="prod">
+        <div class="prod" style="margin-bottom:10px">
           <div style="min-width:0">
-            <b>${name}</b>
-            <div class="muted">${cat}</div>
-            <div class="muted">Prix: ${fmtHTG(p.Prix||0)} • Stock: ${stock} • Actif: ${actif ? "Oui" : "Non"}</div>
+            <b>${escapeHtml(p.Nom||"")}</b>
+            <div class="muted">${escapeHtml(p.Categorie||"")}</div>
+            <div class="muted">Prix: <b>${fmtHTG(p.Prix||0)}</b> • Stock: <b>${stock}</b> • Actif: <b>${actif ? "Oui" : "Non"}</b></div>
+          </div>
+          <div>
+            <span class="badge ${stock>0 && actif ? "good":"bad"}">${stock>0 && actif ? "En vente" : "Hors vente"}</span>
           </div>
         </div>
       `;
     }).join("");
 
-    $("productsBox").innerHTML = `<div class="menuGrid">${html || `<div class="muted">Aucun produit.</div>`}</div>`;
+    $("productsBox").innerHTML = html;
+
   }catch(e){
     showErr(e.message || e);
     $("productsBox").textContent = "Erreur.";
   }
 }
+
+$("reloadProductsBtn").addEventListener("click", loadProducts);
 
 /***************
  * Place order (submitOrderLite + getProducts)
@@ -647,7 +627,6 @@ function syncPlaceAddr(){
   $("p_addrWrap").style.display = isLiv ? "block" : "none";
   if(!isLiv) $("p_addr").value="";
 }
-
 function calcPlaceTotal(){
   let total = 0;
   for(const [pid, qty] of Object.entries(placeCart)){
@@ -657,11 +636,9 @@ function calcPlaceTotal(){
   }
   return total;
 }
-
 function renderPlaceCart(){
   const entries = Object.entries(placeCart);
-  const total = calcPlaceTotal();
-  $("placeTotal").textContent = fmtHTG(total);
+  $("placeTotal").textContent = fmtHTG(calcPlaceTotal());
 
   if(entries.length===0){
     $("placeCartItems").innerHTML = `<div class="muted">Panier vide</div>`;
@@ -685,10 +662,8 @@ function renderPlaceCart(){
       `;
     }).join("");
   }
-
   validatePlaceOrderBtn();
 }
-
 window.placeQty = function(pid, q){
   const next = Number(q||0);
   if(next <= 0) delete placeCart[pid];
@@ -699,16 +674,18 @@ window.placeRm = function(pid){
   delete placeCart[pid];
   renderPlaceCart();
 };
+window.placeAdd = function(pid){
+  placeCart[String(pid)] = (Number(placeCart[String(pid)]||0) + 1);
+  renderPlaceCart();
+};
 
 function validatePlaceOrderBtn(){
   const itemsCount = Object.keys(placeCart).length;
   const nameOk = !!$("p_name").value.trim();
   const phoneOk = !!$("p_phone").value.trim();
   const payOk = !!$("p_pay").value.trim();
-
   const isLiv = norm($("p_type").value)==="livraison";
   const addrOk = !isLiv || !!$("p_addr").value.trim();
-
   $("placeOrderBtn").disabled = !(itemsCount>0 && nameOk && phoneOk && payOk && addrOk);
 }
 
@@ -744,17 +721,11 @@ function renderMenu(){
   `;
 }
 
-window.placeAdd = function(pid){
-  placeCart[String(pid)] = (Number(placeCart[String(pid)]||0) + 1);
-  renderPlaceCart();
-};
-
 async function loadMenuForPlace(){
   try{
+    // getProducts filtre déjà stock>0 dans ton Apps Script
     const r = await apiJsonp("getProducts", {});
     if(!r || !r.ok) throw new Error(r?.error || "Erreur getProducts");
-
-    // Ton Apps Script filtre déjà Stock > 0
     menuProducts = Array.isArray(r.products) ? r.products : [];
     renderMenu();
     renderPlaceCart();
@@ -767,11 +738,10 @@ async function loadMenuForPlace(){
 $("menuSearch").addEventListener("input", renderMenu);
 $("reloadMenuBtn").addEventListener("click", loadMenuForPlace);
 $("p_type").addEventListener("change", ()=>{ syncPlaceAddr(); validatePlaceOrderBtn(); });
-$("p_name").addEventListener("input", validatePlaceOrderBtn);
-$("p_phone").addEventListener("input", validatePlaceOrderBtn);
+["p_name","p_phone","p_addr","p_note"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", validatePlaceOrderBtn);
+});
 $("p_pay").addEventListener("change", validatePlaceOrderBtn);
-$("p_addr").addEventListener("input", validatePlaceOrderBtn);
-$("p_note").addEventListener("input", validatePlaceOrderBtn);
 
 $("clearPlaceCartBtn").addEventListener("click", ()=>{
   for(const k of Object.keys(placeCart)) delete placeCart[k];
@@ -784,12 +754,11 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
     const items = Object.entries(placeCart).map(([ProductID, Quantite])=>({ ProductID, Quantite }));
     if(items.length===0) throw new Error("Panier vide");
 
-    const typeCommande = $("p_type").value;
     const payload = {
       guestId: "admin-pos",
       clientNom: $("p_name").value.trim(),
       telephone: $("p_phone").value.trim(),
-      typeCommande,
+      typeCommande: $("p_type").value,
       adresse: $("p_addr").value.trim(),
       noteCommande: $("p_note").value.trim(),
       paymentMethod: $("p_pay").value.trim(),
@@ -801,14 +770,6 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
 
     toast("Commande enregistrée ✅ ID: " + (r.orderId || "OK"));
 
-    // Ouvrir WhatsApp vers BES (optionnel : tu peux enlever si tu veux)
-    // Ici on ouvre vers le numéro BES (si tu veux envoyer au staff).
-    // Si tu veux, je te fais aussi “WhatsApp staff” configurable.
-    const staffPhone = "50940430164";
-    const msg = `BES – Commande comptoir\nNom: ${payload.clientNom}\nTel: ${payload.telephone}\nType: ${payload.typeCommande}\nTotal: ${fmtHTG(r.total||0)}\nID: ${r.orderId||""}`;
-    window.open("https://wa.me/" + staffPhone + "?text=" + encodeURIComponent(msg), "_blank");
-
-    // reset
     for(const k of Object.keys(placeCart)) delete placeCart[k];
     $("p_note").value="";
     $("p_addr").value="";
@@ -817,7 +778,6 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
     syncPlaceAddr();
     renderPlaceCart();
 
-    // recharge menu (stock a pu changer)
     loadMenuForPlace();
 
   }catch(e){
