@@ -214,7 +214,6 @@
       color:#fff; border:none;
     }
 
-    /* ✅ rendre le disabled visible */
     button:disabled{
       opacity:.45;
       cursor:not-allowed;
@@ -254,6 +253,12 @@
       border:1px solid rgba(211,47,47,.18);
       padding:2px 8px; border-radius:999px;
     }
+    .opt{
+      font-size:11px; font-weight:1000; color: rgba(46,125,50,.95);
+      background: rgba(46,125,50,.08);
+      border:1px solid rgba(46,125,50,.18);
+      padding:2px 8px; border-radius:999px;
+    }
 
     .toast{
       display:none;
@@ -278,7 +283,6 @@
 
     .dim{ opacity:.65; pointer-events:none; filter:saturate(.9); }
 
-    /* ✅ bloc paiement */
     .payBox{
       border:1px solid rgba(93,64,55,.16);
       border-radius:16px;
@@ -323,7 +327,7 @@
       </div>
     </div>
 
-    <div class="pill">Commande en ligne • WhatsApp v3 (Sheets)</div>
+    <div class="pill">Commande en ligne • WhatsApp v4 (Sheets)</div>
   </div>
 </header>
 
@@ -435,11 +439,13 @@
           </div>
         </div>
 
-        <!-- preuve image obligatoire (upload seulement) -->
+        <!-- ✅ preuve image OPTIONNELLE -->
         <div class="field">
-          <div class="label">Preuve de paiement (image) <span class="req">Obligatoire</span></div>
+          <div class="label">Preuve de paiement (image) <span class="opt">Optionnel</span></div>
           <input id="paymentProof" type="file" accept="image/*">
-          <div class="fileHint">Sélectionne une image (capture / screenshot). Ensuite on t’envoie sur WhatsApp pour l’envoyer.</div>
+          <div class="fileHint">
+            Tu peux envoyer la preuve directement dans WhatsApp après l’envoi de la commande.
+          </div>
           <div class="proofOk" id="proofOk">✅ Image sélectionnée</div>
         </div>
 
@@ -455,20 +461,12 @@
 
 <script>
   /*********************
-   * CONFIG (WhatsApp + Google Sheets)
+   * CONFIG
    *********************/
-  // ✅ wa.me veut seulement les chiffres
   const WHATSAPP_NUMBER = "50940430164";
-
-  // ✅ ICI tu mets ton URL Apps Script (Web App /exec)
   const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec";
-
-  // clé localStorage
   const CART_KEY = "bes_cart_v1";
 
-  /*********************
-   * PRODUITS (STATIC)
-   *********************/
   const STATIC_PRODUCTS = [
     { ProductID:"1", Nom:"Cornet (Pack de 6)", Prix:1250, Description:"", Categorie:"Nourriture", Image:"" },
     { ProductID:"2", Nom:"Gratiné simple",      Prix:1000, Description:"", Categorie:"Nourriture", Image:"" },
@@ -478,9 +476,6 @@
     { ProductID:"6", Nom:"Lasagne et wings",    Prix:1500, Description:"", Categorie:"Nourriture", Image:"" }
   ];
 
-  /*********************
-   * HELPERS
-   *********************/
   const $ = (id)=>document.getElementById(id);
   function norm(s){ return String(s||"").toLowerCase().trim(); }
   function fmtHTG(n){
@@ -510,14 +505,6 @@
     t.textContent="";
   }
 
-  function safeImgUrl(u){
-    const url = String(u||"").trim();
-    if(!url) return "";
-    if(/^https?:\/\//i.test(url)) return url;
-    if(url.startsWith("./") || url.startsWith("assets/")) return url;
-    return "";
-  }
-
   function syncAddressVisibility(){
     const t = norm($("typeCommande").value);
     const isLiv = (t === "livraison");
@@ -525,16 +512,8 @@
     if(!isLiv) $("adresse").value = "";
   }
 
-  /*********************
-   * JSONP vers Apps Script (pour éviter CORS sur GitHub Pages)
-   *********************/
   function apiJsonp(action, params = {}) {
     return new Promise((resolve, reject) => {
-      if(!API_URL || API_URL.includes("XXXXX")){
-        reject(new Error("API_URL manquant. Mets ton lien Apps Script dans API_URL."));
-        return;
-      }
-
       const cb = "cb_" + Math.random().toString(16).slice(2);
       const q = new URLSearchParams({ action, callback: cb, ...params }).toString();
       const url = API_URL + "?" + q;
@@ -574,9 +553,6 @@
     });
   }
 
-  /*********************
-   * LOCAL CART
-   *********************/
   function loadCart(){
     try{
       const raw = localStorage.getItem(CART_KEY);
@@ -585,12 +561,8 @@
       return (obj && typeof obj === "object") ? obj : {};
     }catch(_){ return {}; }
   }
-  function saveCart(cart){
-    localStorage.setItem(CART_KEY, JSON.stringify(cart || {}));
-  }
-  function clearCart(){
-    localStorage.removeItem(CART_KEY);
-  }
+  function saveCart(cart){ localStorage.setItem(CART_KEY, JSON.stringify(cart || {})); }
+  function clearCart(){ localStorage.removeItem(CART_KEY); }
 
   function cartToItems(cartObj){
     const items = [];
@@ -617,9 +589,6 @@
     return total;
   }
 
-  /*********************
-   * PRODUCTS UI
-   *********************/
   const state = { guestId: null, products: STATIC_PRODUCTS };
 
   function getGuestId(){
@@ -635,17 +604,14 @@
     const cats = Array.from(new Set(state.products.map(p=>p.Categorie).filter(Boolean)));
     $("catFilter").innerHTML =
       `<option value="">Toutes catégories</option>` + cats.map(c=>`<option>${c}</option>`).join("");
-
     $("catFilter").onchange = renderProducts;
     $("search").oninput = renderProducts;
-
     renderProducts();
   }
 
   function renderProducts(){
     const cat = $("catFilter").value;
     const q = norm($("search").value);
-
     const list = state.products.filter(p => {
       const okCat = (!cat || String(p.Categorie) === String(cat));
       const hay = norm(p.Nom) + " " + norm(p.Description) + " " + norm(p.Categorie);
@@ -660,18 +626,11 @@
     }
 
     box.innerHTML = list.map(p=>{
-      const img = safeImgUrl(p.Image);
-      const thumb = img
-        ? `<img src="${img}" alt="${(p.Nom||"").replace(/"/g,"")}"
-              onerror="this.remove(); this.parentNode.textContent='BES';">`
-        : `BES`;
-
       const badgeClass = (p.Categorie === "Dessert") ? "badge pink" : "badge green";
-
       return `
         <div class="prod">
           <div class="prodTop">
-            <div class="thumb">${thumb}</div>
+            <div class="thumb">BES</div>
             <div style="flex:1;min-width:0">
               <div class="row" style="align-items:flex-start">
                 <div style="min-width:0">
@@ -685,10 +644,8 @@
               </div>
             </div>
           </div>
-
           <div style="margin-top:10px">
-            <button class="btn btnAdd" type="button"
-              onclick="addToCart('${String(p.ProductID).replace(/'/g,"")}')">
+            <button class="btn btnAdd" type="button" onclick="addToCart('${String(p.ProductID).replace(/'/g,"")}')">
               Ajouter au panier
             </button>
           </div>
@@ -697,9 +654,6 @@
     }).join("");
   }
 
-  /*********************
-   * CART UI
-   *********************/
   function renderCart(){
     const cart = loadCart();
     const items = cartToItems(cart);
@@ -721,7 +675,6 @@
             <div class="name">${it.Nom||""}</div>
             <div class="sub">${fmtHTG(it.Prix)} × ${Number(it.Quantite||0)} = <b>${fmtHTG(sub)}</b></div>
           </div>
-
           <div class="miniBtns">
             <button class="mini" type="button" onclick="qty('${it.ProductID}', ${Number(it.Quantite||1)-1})">−</button>
             <button class="mini" type="button" onclick="qty('${it.ProductID}', ${Number(it.Quantite||1)+1})">+</button>
@@ -741,7 +694,6 @@
     const pid = String(productId);
     cart[pid] = (Number(cart[pid]||0) + 1);
     saveCart(cart);
-
     renderCart();
     toast("Ajouté au panier ✅");
     setTimeout(clearToast, 900);
@@ -752,10 +704,8 @@
     const cart = loadCart();
     const pid = String(productId);
     const next = Number(q||0);
-
     if(next <= 0) delete cart[pid];
     else cart[pid] = next;
-
     saveCart(cart);
     renderCart();
   }
@@ -774,27 +724,24 @@
     else card.classList.remove("dim");
   }
 
-  /*********************
-   * Paiement + image obligatoire
-   *********************/
   function getSelectedPaymentMethod(){
     const el = document.querySelector("input[name='pay']:checked");
     return el ? String(el.value || "").trim() : "";
   }
 
+  // ✅ preuve maintenant OPTIONNELLE
   function hasProofImage(){
     const f = $("paymentProof").files;
     return !!(f && f.length > 0);
   }
 
+  // ✅ bouton : preuve NON requise
   function validateCheckoutButton(){
     const cart = loadCart();
     const items = cartToItems(cart);
     const total = cartTotal(cart);
 
     const paymentMethod = getSelectedPaymentMethod();
-    const proof = hasProofImage();
-
     const nameOk = !!$("clientNom").value.trim();
     const phoneOk = !!$("telephone").value.trim();
 
@@ -802,32 +749,26 @@
     const isLiv = (t === "livraison");
     const addrOk = !isLiv || !!$("adresse").value.trim();
 
-    const ok = (items.length > 0 && total > 0 && nameOk && phoneOk && addrOk && paymentMethod && proof);
+    const ok = (items.length > 0 && total > 0 && nameOk && phoneOk && addrOk && paymentMethod);
 
     $("checkoutBtn").disabled = !ok;
-    $("proofOk").style.display = proof ? "block" : "none";
+    $("proofOk").style.display = hasProofImage() ? "block" : "none";
   }
 
-  /*********************
-   * WhatsApp (message seulement)
-   *********************/
   function openWhatsApp(message){
     const url = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(message);
     window.open(url, "_blank");
   }
 
-  function buildWhatsAppMessage(payload, cartItems, total){
+  function buildWhatsAppMessage(payload, cartItems, total, proofSelected){
     let msg = "🍔 BES FAST FOOD – NOUVELLE COMMANDE\n\n";
     msg += "👤 Nom : " + payload.clientNom + "\n";
     msg += "📞 Téléphone : " + payload.telephone + "\n\n";
     msg += "🛍️ Commande :\n";
 
     cartItems.forEach(it=>{
-      const p = STATIC_PRODUCTS.find(x => String(x.ProductID) === String(it.ProductID));
-      const name = p ? p.Nom : ("Produit " + it.ProductID);
-      const price = p ? Number(p.Prix||0) : 0;
-      const sub = price * Number(it.Quantite||0);
-      msg += "- " + name + " x" + it.Quantite + " = " + fmtHTG(sub) + "\n";
+      const sub = Number(it.Prix||0) * Number(it.Quantite||0);
+      msg += "- " + it.Nom + " x" + it.Quantite + " = " + fmtHTG(sub) + "\n";
     });
 
     msg += "\n💰 Total : " + fmtHTG(total) + "\n";
@@ -841,12 +782,12 @@
     }
 
     msg += "\n📌 IMPORTANT : Envoie la preuve de paiement (image) dans ce chat WhatsApp ✅";
+    if(proofSelected){
+      msg += "\n(✅ tu as déjà sélectionné une image sur le site, envoie-la ici maintenant)";
+    }
     return msg;
   }
 
-  /*********************
-   * CHECKOUT (WhatsApp + Sheets sans image)
-   *********************/
   async function checkout(){
     try{
       hideErr(); clearToast();
@@ -866,11 +807,6 @@
         return;
       }
 
-      if(!hasProofImage()){
-        showErr("Preuve de paiement obligatoire (image).");
-        return;
-      }
-
       const payload = {
         guestId: state.guestId,
         clientNom: $("clientNom").value.trim(),
@@ -880,6 +816,8 @@
         noteCommande: $("noteCommande").value.trim(),
         paymentMethod: paymentMethod,
         total: total,
+        // ✅ on enregistre seulement un indicateur (pas l’image)
+        proofSelected: hasProofImage() ? "OUI" : "NON",
         items: itemsFull.map(it => ({
           ProductID: it.ProductID,
           Nom: it.Nom,
@@ -900,7 +838,7 @@
       setBusy(true);
 
       // 1) WhatsApp
-      openWhatsApp(buildWhatsAppMessage(payload, itemsFull, total));
+      openWhatsApp(buildWhatsAppMessage(payload, itemsFull, total, hasProofImage()));
 
       // 2) Sheets (sans image)
       let serverOk = false;
@@ -916,7 +854,6 @@
         toast("WhatsApp ouvert ✅ (Erreur Sheets)");
       }
 
-      // si OK, vider
       if(serverOk){
         clearCart();
         renderCart();
@@ -925,6 +862,7 @@
         $("typeCommande").value = "Sur place";
         syncAddressVisibility();
 
+        // reset UI preuve (optionnelle)
         $("paymentProof").value = "";
         document.querySelectorAll("input[name='pay']").forEach(x=> x.checked = false);
         validateCheckoutButton();
@@ -939,14 +877,12 @@
     }
   }
 
-  /*********************
-   * BOOT
-   *********************/
   (function(){
     state.guestId = getGuestId();
 
     $("refreshBtn").onclick = renderCart;
     $("checkoutBtn").onclick = checkout;
+
     $("typeCommande").onchange = ()=>{ syncAddressVisibility(); validateCheckoutButton(); };
     $("resetCartBtn").onclick = ()=>{ clearCart(); renderCart(); toast("Panier vidé ✅"); setTimeout(clearToast, 900); };
 
@@ -970,4 +906,3 @@
 
 </body>
 </html>
-
