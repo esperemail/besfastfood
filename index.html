@@ -59,11 +59,7 @@
       overflow:hidden;
       flex:0 0 auto;
     }
-    .logoWrap img{
-      width:100%; height:100%;
-      object-fit:contain;
-      display:block;
-    }
+    .logoWrap img{width:100%; height:100%; object-fit:contain; display:block;}
     .brandText{
       display:flex;
       flex-direction:column;
@@ -76,7 +72,6 @@
       font-weight:1000;
       letter-spacing: 8px;
       color:#2b1b16;
-      text-align:left;
       white-space:nowrap;
     }
     .brandTag{
@@ -84,7 +79,6 @@
       font-size:13px;
       font-weight:1000;
       color: rgba(46,125,50,.95);
-      text-align:left;
       white-space:nowrap;
     }
 
@@ -159,7 +153,6 @@
         #fff;
       padding:12px;
       transition: transform .18s ease, box-shadow .18s ease;
-      position:relative;
     }
     .prod:hover{ transform: translateY(-2px); box-shadow: 0 18px 34px rgba(93,64,55,.16); }
 
@@ -192,7 +185,6 @@
     }
     .badge.green{border-color:rgba(46,125,50,.25); color:rgba(46,125,50,.95)}
     .badge.pink{border-color:rgba(211,47,47,.20); color:rgba(211,47,47,.90)}
-    .badge.stock0{border-color:rgba(211,47,47,.25); color:rgba(211,47,47,.95);}
 
     .btn{
       width:100%;
@@ -286,19 +278,19 @@
     .payRow{
       display:flex;
       gap:12px;
-      align-items:center; /* ✅ aligné vertical */
+      align-items:center;
       padding:10px 0;
       border-top:1px dashed rgba(93,64,55,.16);
     }
     .payRow:first-child{ border-top:none; }
     .payRadio{
       width:18px; height:18px;
-      accent-color: #111;
+      accent-color:#111;
       flex:0 0 auto;
     }
     .payText{flex:1; min-width:0}
     .payTitle{
-      font-weight:1000; margin:0;
+      font-weight:1000;
       line-height:1.2;
       word-break: break-word;
     }
@@ -330,8 +322,7 @@
         <div class="brandTag">Fast Food</div>
       </div>
     </div>
-
-    <div class="pill">Commande en ligne • WhatsApp v5 (Sheets + Livraison)</div>
+    <div class="pill">Commande en ligne • v6 (Stock via Apps Script)</div>
   </div>
 </header>
 
@@ -346,7 +337,7 @@
         <div class="row">
           <div>
             <div style="font-weight:1000;font-size:18px">Menu</div>
-            <div class="muted">Disponible</div>
+            <div class="muted" id="menuStatus">Chargement depuis Apps Script...</div>
           </div>
           <div style="max-width:260px; width:100%">
             <select id="catFilter"></select>
@@ -388,7 +379,6 @@
           <b id="total">0.00 HTG</b>
         </div>
 
-        <!-- ✅ Frais livraison affichés si Livraison -->
         <div id="feeBox" class="feeBox"></div>
 
         <div class="hr"></div>
@@ -431,7 +421,7 @@
           <textarea id="noteCommande" placeholder="Ex: sans piment..."></textarea>
         </div>
 
-        <!-- ✅ Paiement obligatoire (mise en forme corrigée) -->
+        <!-- ✅ Paiement obligatoire -->
         <div class="field">
           <div class="label">Paiement <span class="req">Obligatoire</span></div>
           <div class="payBox">
@@ -467,34 +457,30 @@
   /*********************
    * CONFIG
    *********************/
-  const WHATSAPP_NUMBER = "50940430164";
+  const WHATSAPP_NUMBER = "50940430164"; // chiffres seulement
   const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec";
   const CART_KEY = "bes_cart_v1";
 
   /*********************
-   * ZONES + FRAIS LIVRAISON
+   * LIVRAISON: ZONES + FRAIS
    *********************/
   const DELIVERY_ZONES = [
     { key:"Madeline", label:"Centre ville - Madeline", fee:250 },
-    { key:"Barriere Bouteille", label:"Centre ville - Barrière Bouteille", fee:250 },
-    { key:"Haut du Cap", label:"Centre ville - Haut du Cap", fee:350 },
-    { key:"Quartier Morin", label:"Centre ville - Quartier Morin", fee:350 },
-    { key:"Morne rouge", label:"Centre ville - Morne rouge", fee:500 },
+    { key:"BarriereBouteille", label:"Centre ville - Barrière Bouteille", fee:250 },
+    { key:"HautDuCap", label:"Centre ville - Haut du Cap", fee:350 },
+    { key:"QuartierMorin", label:"Centre ville - Quartier Morin", fee:350 },
+    { key:"MorneRouge", label:"Centre ville - Morne rouge", fee:500 },
     { key:"Limonade", label:"Centre ville - Limonade", fee:500 }
   ];
 
   /*********************
-   * PRODUITS (STATIC) ✅ Ajoute Stock
-   * Stock: mets 0 pour cacher automatiquement le produit
+   * STATE
    *********************/
-  const STATIC_PRODUCTS = [
-    { ProductID:"1", Nom:"Cornet (Pack de 6)", Prix:1250, Description:"", Categorie:"Nourriture", Image:"", Stock: 10 },
-    { ProductID:"2", Nom:"Gratiné simple",      Prix:1000, Description:"", Categorie:"Nourriture", Image:"", Stock: 10 },
-    { ProductID:"3", Nom:"Gratiné wings",       Prix:1000, Description:"", Categorie:"Nourriture", Image:"", Stock: 10 },
-    { ProductID:"4", Nom:"Wings simple",        Prix:750,  Description:"", Categorie:"Nourriture", Image:"", Stock: 10 },
-    { ProductID:"5", Nom:"Cupcake (Pack de 6)", Prix:1500, Description:"", Categorie:"Dessert",    Image:"", Stock: 10 },
-    { ProductID:"6", Nom:"Lasagne et wings",    Prix:1000, Description:"", Categorie:"Nourriture", Image:"", Stcok: 0}
-  ];
+  const state = {
+    guestId: null,
+    products: [], // ✅ vient de Apps Script
+    productsById: new Map()
+  };
 
   /*********************
    * HELPERS
@@ -504,18 +490,6 @@
   function fmtHTG(n){
     const x = Number(n||0);
     return x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " HTG";
-  }
-
-  function showErr(t){
-    const e=$("err");
-    e.style.display="block";
-    e.textContent = String(t || "Erreur");
-    window.scrollTo({top:0, behavior:"smooth"});
-  }
-  function hideErr(){
-    const e=$("err");
-    e.style.display="none";
-    e.textContent="";
   }
   function toast(msg){
     const t=$("toast");
@@ -527,12 +501,41 @@
     t.style.display="none";
     t.textContent="";
   }
+  function showErr(t){
+    const e=$("err");
+    e.style.display="block";
+    e.textContent = String(t || "Erreur");
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  function hideErr(){
+    const e=$("err");
+    e.style.display="none";
+    e.textContent="";
+  }
+  function setBusy(isBusy){
+    const card = $("cartCard");
+    if(isBusy) card.classList.add("dim");
+    else card.classList.remove("dim");
+  }
+
+  function safeImgUrl(u){
+    const url = String(u||"").trim();
+    if(!url) return "";
+    if(/^https?:\/\//i.test(url)) return url;
+    if(url.startsWith("./") || url.startsWith("assets/")) return url;
+    return "";
+  }
 
   /*********************
-   * JSONP vers Apps Script (anti CORS)
+   * JSONP (anti CORS)
    *********************/
   function apiJsonp(action, params = {}) {
     return new Promise((resolve, reject) => {
+      if(!API_URL || API_URL.includes("XXXXX")){
+        reject(new Error("API_URL manquant. Mets ton lien Apps Script dans API_URL."));
+        return;
+      }
+
       const cb = "cb_" + Math.random().toString(16).slice(2);
       const q = new URLSearchParams({ action, callback: cb, ...params }).toString();
       const url = API_URL + "?" + q;
@@ -573,7 +576,19 @@
   }
 
   /*********************
-   * LOCAL CART
+   * GUEST ID
+   *********************/
+  function getGuestId(){
+    let id = localStorage.getItem("guestId");
+    if(!id){
+      id = "guest-" + (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+"-"+Math.random().toString(16).slice(2)));
+      localStorage.setItem("guestId", id);
+    }
+    return id;
+  }
+
+  /*********************
+   * CART (local)
    *********************/
   function loadCart(){
     try{
@@ -586,16 +601,19 @@
   function saveCart(cart){ localStorage.setItem(CART_KEY, JSON.stringify(cart || {})); }
   function clearCart(){ localStorage.removeItem(CART_KEY); }
 
+  function productById(pid){
+    return state.productsById.get(String(pid)) || null;
+  }
+
   function cartToItems(cartObj){
     const items = [];
     for(const [pid, qty] of Object.entries(cartObj || {})){
-      const p = STATIC_PRODUCTS.find(x => String(x.ProductID) === String(pid));
+      const p = productById(pid);
       if(!p) continue;
-      // ✅ si stock 0 => ne pas mettre dans panier (sécurité)
       if(Number(p.Stock||0) <= 0) continue;
 
       items.push({
-        ProductID: String(pid),
+        ProductID: String(p.ProductID),
         Nom: p.Nom,
         Prix: Number(p.Prix||0),
         Quantite: Math.max(1, Number(qty||1))
@@ -607,7 +625,7 @@
   function cartSubtotal(cartObj){
     let total = 0;
     for(const [pid, qty] of Object.entries(cartObj || {})){
-      const p = STATIC_PRODUCTS.find(x => String(x.ProductID) === String(pid));
+      const p = productById(pid);
       if(!p) continue;
       if(Number(p.Stock||0) <= 0) continue;
       total += Number(p.Prix||0) * Math.max(1, Number(qty||1));
@@ -616,20 +634,27 @@
   }
 
   /*********************
-   * DELIVERY helpers
+   * LIVRAISON helpers
    *********************/
-  function isLivraison(){
-    return norm($("typeCommande").value) === "livraison";
+  function isLivraison(){ return norm($("typeCommande").value) === "livraison"; }
+
+  function loadZonesUI(){
+    $("zoneLivraison").innerHTML =
+      `<option value="">Choisir une zone...</option>` +
+      DELIVERY_ZONES.map(z => `<option value="${z.key}">${z.label} — ${fmtHTG(z.fee)}</option>`).join("");
   }
+
   function getSelectedZone(){
     const key = String($("zoneLivraison").value || "").trim();
     return DELIVERY_ZONES.find(z => z.key === key) || null;
   }
+
   function getDeliveryFee(){
     if(!isLivraison()) return 0;
     const z = getSelectedZone();
     return z ? Number(z.fee||0) : 0;
   }
+
   function updateFeeBox(){
     const box = $("feeBox");
     if(!isLivraison()){
@@ -638,12 +663,11 @@
       return;
     }
     const z = getSelectedZone();
+    box.style.display = "block";
     if(!z){
-      box.style.display = "block";
       box.textContent = "🚚 Frais de livraison : choisissez une zone.";
       return;
     }
-    box.style.display = "block";
     box.textContent = `🚚 Frais de livraison (${z.label}) : ${fmtHTG(z.fee)}`;
   }
 
@@ -657,33 +681,75 @@
   }
 
   /*********************
-   * PRODUCTS UI
+   * MENU (depuis Apps Script)
    *********************/
-  const state = { guestId: null, products: STATIC_PRODUCTS };
+  function normalizeProduct(p){
+    // tolérant aux noms de colonnes
+    const ProductID = String(p.ProductID ?? p.id ?? p.Id ?? "").trim();
+    const Nom = String(p.Nom ?? p.name ?? p.Name ?? "").trim();
+    const Prix = Number(p.Prix ?? p.price ?? 0);
+    const Description = String(p.Description ?? p.desc ?? "").trim();
+    const Categorie = String(p.Categorie ?? p.category ?? "").trim();
+    const Image = String(p.Image ?? p.image ?? "").trim();
+    const Stock = Number(p.Stock ?? p.stock ?? 0);
 
-  function getGuestId(){
-    let id = localStorage.getItem("guestId");
-    if(!id){
-      id = "guest-" + (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+"-"+Math.random().toString(16).slice(2)));
-      localStorage.setItem("guestId", id);
-    }
-    return id;
+    return { ProductID, Nom, Prix, Description, Categorie, Image, Stock };
   }
 
-  function loadZonesUI(){
-    $("zoneLivraison").innerHTML =
-      `<option value="">Choisir une zone...</option>` +
-      DELIVERY_ZONES.map(z => `<option value="${z.key}">${z.label} — ${fmtHTG(z.fee)}</option>`).join("");
+  async function loadMenuFromServer(){
+    $("menuStatus").textContent = "Chargement depuis Apps Script...";
+    try{
+      const r = await apiJsonp("getMenu", {});
+      if(!r || !r.ok || !Array.isArray(r.products)){
+        throw new Error("Réponse menu invalide");
+      }
+
+      const products = r.products.map(normalizeProduct)
+        .filter(p => p.ProductID && p.Nom);
+
+      // ✅ ne garder que stock > 0
+      state.products = products.filter(p => Number(p.Stock||0) > 0);
+
+      state.productsById = new Map(state.products.map(p => [String(p.ProductID), p]));
+
+      $("menuStatus").textContent = `Menu chargé ✅ (${state.products.length} dispo)`;
+      loadProductsUI();
+      sanitizeCartAgainstStock();
+      renderCart();
+      validateCheckoutButton();
+    }catch(e){
+      $("menuStatus").textContent = "Impossible de charger le menu (serveur).";
+      $("products").innerHTML = `<div class="muted" style="padding:14px">
+        ❌ Menu indisponible. Vérifie Apps Script (action=getMenu).
+      </div>`;
+    }
+  }
+
+  function sanitizeCartAgainstStock(){
+    const cart = loadCart();
+    let changed = false;
+
+    for(const pid of Object.keys(cart)){
+      const p = productById(pid);
+      if(!p || Number(p.Stock||0) <= 0){
+        delete cart[pid];
+        changed = true;
+        continue;
+      }
+      // option: limiter quantité au stock
+      const qty = Math.max(1, Number(cart[pid]||1));
+      const max = Math.max(1, Number(p.Stock||1));
+      if(qty > max){
+        cart[pid] = max;
+        changed = true;
+      }
+    }
+
+    if(changed) saveCart(cart);
   }
 
   function loadProductsUI(){
-    // ✅ catégories uniquement des produits en stock
-    const cats = Array.from(new Set(
-      state.products
-        .filter(p => Number(p.Stock||0) > 0)
-        .map(p=>p.Categorie)
-        .filter(Boolean)
-    ));
+    const cats = Array.from(new Set(state.products.map(p=>p.Categorie).filter(Boolean)));
     $("catFilter").innerHTML =
       `<option value="">Toutes catégories</option>` + cats.map(c=>`<option>${c}</option>`).join("");
 
@@ -697,9 +763,7 @@
     const cat = $("catFilter").value;
     const q = norm($("search").value);
 
-    // ✅ filtrer stock > 0
     const list = state.products.filter(p => {
-      if(Number(p.Stock||0) <= 0) return false;
       const okCat = (!cat || String(p.Categorie) === String(cat));
       const hay = norm(p.Nom) + " " + norm(p.Description) + " " + norm(p.Categorie);
       const okQ = (!q || hay.includes(q));
@@ -713,12 +777,18 @@
     }
 
     box.innerHTML = list.map(p=>{
+      const img = safeImgUrl(p.Image);
+      const thumb = img
+        ? `<img src="${img}" alt="${(p.Nom||"").replace(/"/g,"")}"
+            onerror="this.remove(); this.parentNode.textContent='BES';">`
+        : `BES`;
+
       const badgeClass = (p.Categorie === "Dessert") ? "badge pink" : "badge green";
 
       return `
         <div class="prod">
           <div class="prodTop">
-            <div class="thumb">BES</div>
+            <div class="thumb">${thumb}</div>
             <div style="flex:1;min-width:0">
               <div class="row" style="align-items:flex-start">
                 <div style="min-width:0">
@@ -788,7 +858,7 @@
   window.addToCart = function(productId){
     hideErr(); clearToast();
 
-    const p = STATIC_PRODUCTS.find(x => String(x.ProductID) === String(productId));
+    const p = productById(productId);
     if(!p || Number(p.Stock||0) <= 0){
       toast("Produit indisponible (stock 0).");
       setTimeout(clearToast, 1200);
@@ -797,22 +867,37 @@
 
     const cart = loadCart();
     const pid = String(productId);
-    cart[pid] = (Number(cart[pid]||0) + 1);
-    saveCart(cart);
+    const next = (Number(cart[pid]||0) + 1);
 
+    // limiter au stock
+    const max = Math.max(1, Number(p.Stock||1));
+    cart[pid] = Math.min(next, max);
+
+    saveCart(cart);
     renderCart();
+
     toast("Ajouté au panier ✅");
     setTimeout(clearToast, 900);
   }
 
   window.qty = function(productId, q){
     hideErr(); clearToast();
+
+    const p = productById(productId);
     const cart = loadCart();
     const pid = String(productId);
-    const next = Number(q||0);
 
-    if(next <= 0) delete cart[pid];
-    else cart[pid] = next;
+    const next = Number(q||0);
+    if(next <= 0){
+      delete cart[pid];
+    }else{
+      if(!p || Number(p.Stock||0) <= 0){
+        delete cart[pid];
+      }else{
+        const max = Math.max(1, Number(p.Stock||1));
+        cart[pid] = Math.min(next, max);
+      }
+    }
 
     saveCart(cart);
     renderCart();
@@ -826,13 +911,6 @@
     renderCart();
   }
 
-  function setBusy(isBusy){
-    const card = $("cartCard");
-    if(isBusy) card.classList.add("dim");
-    else card.classList.remove("dim");
-    $("checkoutBtn").disabled = isBusy || $("checkoutBtn").disabled;
-  }
-
   /*********************
    * Paiement obligatoire
    *********************/
@@ -842,7 +920,7 @@
   }
 
   /*********************
-   * VALIDATION + TOTAL
+   * Validation
    *********************/
   function validateCheckoutButton(){
     const cart = loadCart();
@@ -858,12 +936,11 @@
     const zoneOk = !liv || !!$("zoneLivraison").value.trim();
 
     const ok = (items.length > 0 && subTotal > 0 && nameOk && phoneOk && paymentMethod && addrOk && zoneOk);
-
     $("checkoutBtn").disabled = !ok;
   }
 
   /*********************
-   * WhatsApp message
+   * WhatsApp + Message
    *********************/
   function openWhatsApp(message){
     const url = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(message);
@@ -887,7 +964,6 @@
     }
     msg += "💰 Total : " + fmtHTG(payload.total) + "\n";
     msg += "💳 Paiement : " + payload.paymentMethod + "\n\n";
-
     msg += "📍 Type : " + payload.typeCommande + "\n";
     if(norm(payload.typeCommande) === "livraison"){
       msg += "🏠 Adresse : " + (payload.adresse || "-") + "\n";
@@ -895,18 +971,16 @@
     if(payload.noteCommande){
       msg += "\n📝 Note : " + payload.noteCommande + "\n";
     }
-
     return msg;
   }
 
   /*********************
-   * CHECKOUT (WhatsApp + Sheets)
-   * ✅ Après envoi : vider panier + reset => évite double commande
+   * CHECKOUT => WhatsApp + Sheets (sans image)
    *********************/
   async function checkout(){
     try{
       hideErr(); clearToast();
-      $("checkoutBtn").disabled = true; // ✅ éviter double clic
+      $("checkoutBtn").disabled = true; // anti double clic
 
       const cart = loadCart();
       const itemsFull = cartToItems(cart);
@@ -970,11 +1044,9 @@
       openWhatsApp(buildWhatsAppMessage(payload));
 
       // 2) Sheets
-      let serverOk = false;
       try{
         const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
         if(r && r.ok){
-          serverOk = true;
           toast("✅ Commande enregistrée sur Google Sheets (ID: " + (r.orderId || "OK") + ")");
         }else{
           toast("WhatsApp ouvert ✅ (Sheets: échec)");
@@ -983,7 +1055,7 @@
         toast("WhatsApp ouvert ✅ (Erreur Sheets)");
       }
 
-      // ✅ Dans tous les cas: on vide le panier + reset pour éviter le “bouton déjà pressé”
+      // ✅ Reset TOUJOURS (évite bouton “pressé” + double commande)
       clearCart();
       renderCart();
 
@@ -994,16 +1066,16 @@
       $("typeCommande").value = "Sur place";
       $("zoneLivraison").value = "";
       document.querySelectorAll("input[name='pay']").forEach(x=> x.checked = false);
+
       syncAddressVisibility();
       validateCheckoutButton();
-
       setTimeout(clearToast, 4500);
 
     }catch(e){
       showErr(e.message || e);
     }finally{
       setBusy(false);
-      validateCheckoutButton(); // recalculer le bouton
+      validateCheckoutButton();
     }
   }
 
@@ -1015,11 +1087,20 @@
 
     loadZonesUI();
 
-    $("refreshBtn").onclick = renderCart;
+    $("refreshBtn").onclick = () => { sanitizeCartAgainstStock(); renderCart(); };
     $("checkoutBtn").onclick = checkout;
-    $("typeCommande").onchange = ()=>{ syncAddressVisibility(); renderCart(); validateCheckoutButton(); };
 
-    $("zoneLivraison").onchange = ()=>{ updateFeeBox(); renderCart(); validateCheckoutButton(); };
+    $("typeCommande").onchange = ()=>{
+      syncAddressVisibility();
+      renderCart();
+      validateCheckoutButton();
+    };
+
+    $("zoneLivraison").onchange = ()=>{
+      updateFeeBox();
+      renderCart();
+      validateCheckoutButton();
+    };
 
     $("resetCartBtn").onclick = ()=>{
       clearCart();
@@ -1038,13 +1119,13 @@
     });
 
     syncAddressVisibility();
-    loadProductsUI();
     renderCart();
     validateCheckoutButton();
+
+    // ✅ charger le menu depuis Apps Script
+    loadMenuFromServer();
   })();
 </script>
 
 </body>
 </html>
-
-
