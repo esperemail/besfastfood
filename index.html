@@ -323,8 +323,7 @@
       </div>
     </div>
 
-    <!-- ✅ tag pour vérifier la version -->
-    <div class="pill">Commande en ligne • WhatsApp v2</div>
+    <div class="pill">Commande en ligne • WhatsApp v3 (Sheets)</div>
   </div>
 </header>
 
@@ -456,10 +455,16 @@
 
 <script>
   /*********************
-   * CONFIG (WhatsApp uniquement)
+   * CONFIG (WhatsApp + Google Sheets)
    *********************/
-  // ✅ IMPORTANT: wa.me veut seulement les chiffres (pas de +)
+  // ✅ wa.me veut seulement les chiffres
   const WHATSAPP_NUMBER = "50940430164";
+
+  // ✅ ICI tu mets ton URL Apps Script (Web App /exec)
+  const API_URL = "https://script.google.com/macros/s/XXXXX/exec";
+
+  // clé localStorage
+  const CART_KEY = "bes_cart_v1";
 
   /*********************
    * PRODUITS (STATIC)
@@ -477,10 +482,7 @@
    * HELPERS
    *********************/
   const $ = (id)=>document.getElementById(id);
-  const CART_KEY = "bes_cart_v1";
-
   function norm(s){ return String(s||"").toLowerCase().trim(); }
-
   function fmtHTG(n){
     const x = Number(n||0);
     return x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " HTG";
@@ -521,6 +523,55 @@
     const isLiv = (t === "livraison");
     $("addrWrap").style.display = isLiv ? "block" : "none";
     if(!isLiv) $("adresse").value = "";
+  }
+
+  /*********************
+   * JSONP vers Apps Script (pour éviter CORS sur GitHub Pages)
+   *********************/
+  function apiJsonp(action, params = {}) {
+    return new Promise((resolve, reject) => {
+      if(!API_URL || API_URL.includes("XXXXX")){
+        reject(new Error("API_URL manquant. Mets ton lien Apps Script dans API_URL."));
+        return;
+      }
+
+      const cb = "cb_" + Math.random().toString(16).slice(2);
+      const q = new URLSearchParams({ action, callback: cb, ...params }).toString();
+      const url = API_URL + "?" + q;
+
+      const s = document.createElement("script");
+      s.src = url;
+      s.async = true;
+
+      let done = false;
+      const timer = setTimeout(()=>{
+        if(done) return;
+        done = true;
+        try { delete window[cb]; } catch(e){}
+        try { s.remove(); } catch(e){}
+        reject(new Error("Timeout API"));
+      }, 15000);
+
+      window[cb] = (data) => {
+        if(done) return;
+        done = true;
+        clearTimeout(timer);
+        try { delete window[cb]; } catch(e){}
+        try { s.remove(); } catch(e){}
+        resolve(data);
+      };
+
+      s.onerror = () => {
+        if(done) return;
+        done = true;
+        clearTimeout(timer);
+        try { delete window[cb]; } catch(e){}
+        try { s.remove(); } catch(e){}
+        reject(new Error("API error / network"));
+      };
+
+      document.head.appendChild(s);
+    });
   }
 
   /*********************
@@ -794,9 +845,9 @@
   }
 
   /*********************
-   * CHECKOUT (WhatsApp uniquement)
+   * CHECKOUT (WhatsApp + Sheets sans image)
    *********************/
-  function checkout(){
+  async function checkout(){
     try{
       hideErr(); clearToast();
 
@@ -827,7 +878,14 @@
         typeCommande: $("typeCommande").value,
         adresse: $("adresse").value.trim(),
         noteCommande: $("noteCommande").value.trim(),
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,
+        total: total,
+        items: itemsFull.map(it => ({
+          ProductID: it.ProductID,
+          Nom: it.Nom,
+          Prix: it.Prix,
+          Quantite: it.Quantite
+        }))
       };
 
       if(!payload.clientNom || !payload.telephone){
@@ -841,23 +899,38 @@
 
       setBusy(true);
 
-      const waMsg = buildWhatsAppMessage(payload, itemsFull, total);
-      openWhatsApp(waMsg);
+      // 1) WhatsApp
+      openWhatsApp(buildWhatsAppMessage(payload, itemsFull, total));
 
-      toast("WhatsApp ouvert ✅ Envoie maintenant l'image (preuve) dans ce chat.");
-      setTimeout(clearToast, 4000);
+      // 2) Sheets (sans image)
+      let serverOk = false;
+      try{
+        const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
+        if(r && r.ok){
+          serverOk = true;
+          toast("✅ Commande enregistrée sur Google Sheets (ID: " + (r.orderId || "OK") + ")");
+        }else{
+          toast("WhatsApp ouvert ✅ (Sheets: échec)");
+        }
+      }catch(e){
+        toast("WhatsApp ouvert ✅ (Erreur Sheets)");
+      }
 
-      // ✅ option : vider automatiquement
-      clearCart();
-      renderCart();
-      $("noteCommande").value = "";
-      $("adresse").value = "";
-      $("typeCommande").value = "Sur place";
-      syncAddressVisibility();
+      // si OK, vider
+      if(serverOk){
+        clearCart();
+        renderCart();
+        $("noteCommande").value = "";
+        $("adresse").value = "";
+        $("typeCommande").value = "Sur place";
+        syncAddressVisibility();
 
-      $("paymentProof").value = "";
-      document.querySelectorAll("input[name='pay']").forEach(x=> x.checked = false);
-      validateCheckoutButton();
+        $("paymentProof").value = "";
+        document.querySelectorAll("input[name='pay']").forEach(x=> x.checked = false);
+        validateCheckoutButton();
+      }
+
+      setTimeout(clearToast, 4500);
 
     }catch(e){
       showErr(e.message || e);
