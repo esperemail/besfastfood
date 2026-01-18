@@ -1,539 +1,837 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>BES Fast Food – Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BES Admin</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 10px; background:#f6f6f6; }
-    h1 { margin: 0 0 10px; }
-    nav button { margin: 4px; padding: 10px 14px; border-radius:8px; border:1px solid #bbb; cursor:pointer; background:#fff; }
-    nav button.active { background:#111; color:#fff; border-color:#111; }
-    section { display:none; background:#fff; padding:12px; border-radius:10px; box-shadow:0 1px 6px rgba(0,0,0,.06); }
-    section.active { display:block; }
-    .bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0; }
-    .pill { background:#eee; padding:6px 10px; border-radius:999px; font-size:13px; }
-    .ok { color: #0a7a0a; }
-    .err { color: #b00020; }
-    table { width:100%; border-collapse: collapse; margin-top:10px; background:#fff; }
-    th, td { border:1px solid #ddd; padding:8px; font-size:14px; vertical-align:top; }
-    th { background:#f0f0f0; text-align:left; }
-    tr.new { background:#fff3cd; }
-    input, select, textarea { padding:8px; width:100%; border:1px solid #ccc; border-radius:8px; box-sizing:border-box; }
-    textarea { min-height: 70px; }
-    button { padding:8px 12px; border:1px solid #bbb; border-radius:8px; cursor:pointer; background:#fff; }
-    button.primary { background:#111; color:#fff; border-color:#111; }
-    button.small { padding:6px 10px; font-size:13px; }
-    .muted { color:#666; font-size:13px; }
-    .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:10px; }
-    .card { background:#fff; border:1px solid #e6e6e6; border-radius:12px; padding:12px; }
-    .card h3 { margin:0 0 8px; font-size:15px; }
-    .big { font-size:24px; font-weight:700; }
-    .toast { position:fixed; right:12px; bottom:12px; background:#111; color:#fff; padding:10px 12px; border-radius:10px; display:none; }
-    .form-row { display: grid; grid-template-columns: 140px 1.5fr 1.2fr 120px 120px; gap: 10px; align-items: end; }
-    @media (max-width: 900px) { .form-row { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+    :root{
+      --bg:#0b1220;
+      --card:#111a2e;
+      --muted:#a7b0c0;
+      --txt:#e9eef8;
+      --line: rgba(255,255,255,.10);
+      --good:#2E7D32;
+      --warn:#FFC107;
+      --bad:#D32F2F;
+      --btn:#1b2a4a;
+      --btn2:#22355e;
+      --radius:16px;
+      --shadow: 0 12px 32px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background: radial-gradient(900px 500px at 10% 0%, rgba(255,193,7,.12), transparent 55%),
+                  radial-gradient(900px 500px at 90% 10%, rgba(211,47,47,.10), transparent 55%),
+                  var(--bg);
+      color:var(--txt);
+    }
+    header{
+      position:sticky; top:0; z-index:50;
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: rgba(11,18,32,.85);
+      backdrop-filter: blur(10px);
+    }
+    .wrap{max-width:1200px;margin:auto;padding:14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .sp{justify-content:space-between}
+    .brand{font-weight:1000;letter-spacing:1px}
+    .pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:800;font-size:12px}
+    .card{
+      background: rgba(255,255,255,.04);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .cardHead{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    }
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color:var(--txt);
+      padding:10px 12px;border-radius:999px;
+      font-weight:900;cursor:pointer;
+    }
+    .tab.active{background: linear-gradient(90deg, rgba(255,193,7,.25), rgba(255,152,0,.15)); border-color: rgba(255,193,7,.25)}
+    .btn{
+      border:1px solid var(--line);
+      background: var(--btn);
+      color:var(--txt);
+      padding:10px 12px;border-radius:12px;
+      font-weight:900;cursor:pointer;
+      white-space:nowrap;
+    }
+    .btn:hover{background:var(--btn2)}
+    .btn.good{background:rgba(46,125,50,.18);border-color:rgba(46,125,50,.28)}
+    .btn.warn{background:rgba(255,193,7,.18);border-color:rgba(255,193,7,.28)}
+    .btn.bad{background:rgba(211,47,47,.18);border-color:rgba(211,47,47,.28)}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .content{padding:14px}
+    input,select,textarea{
+      width:100%;
+      padding:11px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color:var(--txt);
+      outline:none;
+      font-size:14px;
+    }
+    textarea{min-height:90px;resize:vertical}
+    label{font-size:12px;color:var(--muted);font-weight:900;margin:0 0 6px 2px;display:block}
+    .grid{display:grid;grid-template-columns: 2fr 1fr;gap:12px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+    th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:left}
+    .muted{color:var(--muted);font-size:13px}
+    .kpi{display:flex;gap:10px;flex-wrap:wrap}
+    .k{padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.05);font-weight:900}
+    .toast{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(46,125,50,.25);background:rgba(46,125,50,.12);color:rgba(185,255,210,.95);font-weight:900}
+    .err{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(211,47,47,.25);background:rgba(211,47,47,.12);color:rgba(255,200,200,.95);font-weight:900}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .badge{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);font-weight:900;font-size:12px}
+    .badge.good{border-color:rgba(46,125,50,.35);color:rgba(185,255,210,.95)}
+    .badge.bad{border-color:rgba(211,47,47,.35);color:rgba(255,200,200,.95)}
+    .badge.warn{border-color:rgba(255,193,7,.35);color:rgba(255,240,200,.95)}
+    .hr{height:1px;background:var(--line);margin:12px 0}
+
+    .menuGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    @media(max-width:560px){.menuGrid{grid-template-columns:1fr}}
+    .prod{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(255,255,255,.05);
+      padding:10px;
+      display:flex;gap:10px;align-items:flex-start;justify-content:space-between;
+    }
+    .prod b{display:block}
+    .mini{
+      padding:8px 10px;border-radius:12px;border:1px solid var(--line);
+      background:rgba(255,255,255,.06);color:var(--txt);font-weight:900;cursor:pointer;
+    }
   </style>
 </head>
 
 <body>
+<header>
+  <div class="wrap row sp">
+    <div class="row">
+      <div class="brand">BES Admin</div>
+      <div class="pill" id="envPill">Admin v2 • POS 80mm</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="refreshBtn" type="button">Actualiser</button>
+    </div>
+  </div>
+</header>
 
-<h1>🍔 BES Fast Food – Admin</h1>
+<div class="wrap">
+  <div class="card">
+    <div class="cardHead">
+      <div class="tabs">
+        <button class="tab active" data-tab="orders">Commandes</button>
+        <button class="tab" data-tab="products">Produits</button>
+        <button class="tab" data-tab="place">Placer une commande</button>
+      </div>
 
-<nav>
-  <button id="tabOrders" class="active" onclick="show('orders')">📦 Commandes</button>
-  <button id="tabProducts" onclick="show('products')">🍟 Produits</button>
-  <button id="tabDash" onclick="show('dash')">📊 Dashboard</button>
-</nav>
+      <div class="row">
+        <input id="adminKey" placeholder="ADMIN KEY (obligatoire pour commandes/produits)" style="max-width:320px" />
+        <select id="statusFilter" style="max-width:240px">
+          <option value="">Tous statuts</option>
+          <option>Reçue</option>
+          <option>Prêt à consommer</option>
+          <option>Prêt à emporter</option>
+          <option>Prêt à livrer</option>
+          <option>Annuler</option>
+        </select>
+      </div>
+    </div>
 
-<div class="bar">
-  <span class="pill">Auto-refresh: <b id="autoState">ON</b></span>
-  <button class="small" onclick="toggleAuto()">⏱️ Toggle</button>
-  <button class="small" onclick="testBeep()">🔔 Test son</button>
-  <span class="muted">Ouvre avec <b>#k=TA_CLE</b> (lien secret)</span>
+    <div class="content">
+      <div id="toast" class="toast"></div>
+      <div id="err" class="err"></div>
+
+      <!-- ORDERS -->
+      <section id="tab-orders">
+        <div class="kpi" style="margin-bottom:12px">
+          <div class="k">Total affichées: <span id="k_count">0</span></div>
+          <div class="k">Dernière maj: <span id="k_time">-</span></div>
+        </div>
+
+        <div class="card" style="margin-top:10px">
+          <div class="content" style="padding:0">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Commande</th>
+                  <th>Total</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTbody">
+                <tr><td colspan="7" class="muted">Chargement…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRODUCTS -->
+      <section id="tab-products" style="display:none">
+        <div class="muted">Liste depuis Sheets (admin_listProducts).</div>
+        <div class="hr"></div>
+        <div id="productsBox" class="muted">Chargement…</div>
+      </section>
+
+      <!-- PLACE ORDER -->
+      <section id="tab-place" style="display:none">
+        <div class="grid">
+          <div class="card">
+            <div class="cardHead">
+              <b>Menu (stock > 0)</b>
+              <div class="row">
+                <button class="btn" type="button" id="reloadMenuBtn">Recharger</button>
+              </div>
+            </div>
+            <div class="content">
+              <input id="menuSearch" placeholder="Recherche…" />
+              <div class="hr"></div>
+              <div id="menuBox" class="muted">Chargement…</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardHead">
+              <b>Panier (vente)</b>
+              <button class="btn bad" type="button" id="clearPlaceCartBtn">Vider</button>
+            </div>
+            <div class="content">
+              <div class="row" style="margin-bottom:10px">
+                <div style="flex:1">
+                  <label>Nom</label>
+                  <input id="p_name" placeholder="Ex: Client comptoir" />
+                </div>
+                <div style="flex:1">
+                  <label>Téléphone</label>
+                  <input id="p_phone" placeholder="Ex: +509..." />
+                </div>
+              </div>
+
+              <div class="row" style="margin-bottom:10px">
+                <div style="flex:1">
+                  <label>Type de commande</label>
+                  <select id="p_type">
+                    <option>Sur place</option>
+                    <option>À emporter</option>
+                    <option>Livraison</option>
+                  </select>
+                </div>
+                <div style="flex:1">
+                  <label>Paiement (obligatoire)</label>
+                  <select id="p_pay">
+                    <option value="">Choisir…</option>
+                    <option>Moncash</option>
+                    <option>Natcash</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="p_addrWrap" style="display:none;margin-bottom:10px">
+                <label>Adresse (livraison)</label>
+                <textarea id="p_addr" placeholder="Adresse…"></textarea>
+              </div>
+
+              <label>Note (optionnel)</label>
+              <textarea id="p_note" placeholder="Ex: sans piment…"></textarea>
+
+              <div class="hr"></div>
+
+              <div id="placeCartItems" class="muted">Panier vide</div>
+
+              <div class="hr"></div>
+              <div class="row sp">
+                <b>Total</b>
+                <b id="placeTotal">0.00 HTG</b>
+              </div>
+
+              <div style="margin-top:12px">
+                <button class="btn good" type="button" id="placeOrderBtn" disabled>Enregistrer (Sheets) + WhatsApp</button>
+                <div class="muted" style="margin-top:8px">
+                  Enregistre via <b>submitOrderLite</b> (sans image). WhatsApp s’ouvre après.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
 </div>
 
-<section id="orders" class="active">
-  <h2>📦 Commandes</h2>
-
-  <div class="bar">
-    <button class="primary" onclick="loadOrders(true)">🔄 Rafraîchir</button>
-    <select id="statusFilter" onchange="loadOrders(true)" style="max-width:220px">
-      <option value="">Tous statuts</option>
-      <option value="Reçue">Reçue</option>
-      <option value="Prête">Prête</option>
-      <option value="Prête à livrer">Prête à livrer</option>
-      <option value="Annulée">Annulée</option>
-    </select>
-    <span class="pill">Dernière sync: <b id="lastSync">-</b></span>
-  </div>
-
-  <div id="ordersMsg"></div>
-  <table id="ordersTable"></table>
-</section>
-
-<section id="products">
-  <h2>🍟 Produits</h2>
-
-  <div class="bar">
-    <button class="primary" onclick="loadProducts()">🔄 Charger Produits</button>
-    <button onclick="clearForm()">➕ Nouveau</button>
-  </div>
-
-  <h3>➕ Ajouter / Modifier</h3>
-  <div class="form-row">
-    <div>
-      <label class="muted">ProductID</label>
-      <input id="pId" placeholder="Ex: P001" list="prodIdList" />
-      <datalist id="prodIdList"></datalist>
-    </div>
-    <div>
-      <label class="muted">Nom</label>
-      <input id="pName" placeholder="Nom du produit" />
-    </div>
-    <div>
-      <label class="muted">Catégorie</label>
-      <input id="pCat" placeholder="Ex: Burgers" list="catList" />
-      <datalist id="catList"></datalist>
-    </div>
-    <div>
-      <label class="muted">Prix</label>
-      <input id="pPrice" type="number" placeholder="Prix" />
-    </div>
-    <div>
-      <label class="muted">Stock</label>
-      <input id="pStock" type="number" placeholder="Stock" />
-    </div>
-  </div>
-
-  <div class="bar">
-    <button class="primary" onclick="saveProduct()">💾 Enregistrer</button>
-    <button onclick="deactivateProduct()">🚫 Désactiver</button>
-    <span id="prodMsg"></span>
-  </div>
-
-  <h3>📋 Liste (stock modifiable “lite”)</h3>
-  <div class="muted">Clique une ligne pour éditer. Modifie le stock directement puis “OK”.</div>
-  <table id="productsTable"></table>
-</section>
-
-<section id="dash">
-  <h2>📊 Dashboard (Aujourd’hui)</h2>
-  <div class="bar">
-    <button class="primary" onclick="loadOrders(true)">🔄 Mettre à jour</button>
-    <span class="muted">Basé sur les commandes du jour.</span>
-  </div>
-
-  <div class="cards">
-    <div class="card">
-      <h3>Commandes (jour)</h3>
-      <div class="big" id="dOrders">0</div>
-      <div class="muted" id="dOrdersSub">-</div>
-    </div>
-    <div class="card">
-      <h3>Total (jour)</h3>
-      <div class="big" id="dTotal">0</div>
-      <div class="muted">HTG</div>
-    </div>
-    <div class="card">
-      <h3>Produits vendus</h3>
-      <div class="big" id="dItems">0</div>
-      <div class="muted">quantité totale</div>
-    </div>
-  </div>
-
-  <h3 style="margin-top:14px">Top produits vendus (jour)</h3>
-  <table id="topTable"></table>
-</section>
-
-<div class="toast" id="toast"></div>
-
 <script>
-/************ CONFIG ************/
-const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec";
-let ADMIN_KEY = "";
+/***************
+ * CONFIG
+ ***************/
+const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec"; // <-- ton /exec ici
+const DEFAULT_COUNTRY_CODE = "509"; // si le client met 8 chiffres, on ajoute 509
 
-/************ STATE ************/
-let AUTO_ON = true;
-let AUTO_MS = 12000;
-let autoTimer = null;
+/***************
+ * JSONP helper
+ ***************/
+function apiJsonp(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    if(!API_URL || API_URL.includes("PASTE_")){
+      reject(new Error("API_URL manquant. Mets ton lien Apps Script /exec dans API_URL."));
+      return;
+    }
+    const cb = "cb_" + Math.random().toString(16).slice(2);
+    const q = new URLSearchParams({ action, callback: cb, ...params }).toString();
+    const url = API_URL + "?" + q;
 
-let lastOrderIds = new Set(JSON.parse(localStorage.getItem("bes_admin_last_ids") || "[]"));
-let lastOrdersCache = [];
-let productsCache = [];
+    const s = document.createElement("script");
+    s.src = url;
+    s.async = true;
 
-/************ INIT ************/
-(function init(){
-  const hash = location.hash || "";
-  const m = hash.match(/k=([^&]+)/);
-  if (m) ADMIN_KEY = decodeURIComponent(m[1] || "");
-  if (!ADMIN_KEY) alert("Lien admin invalide : ajoute #k=TA_CLE à l’URL");
+    let done = false;
+    const timer = setTimeout(()=> {
+      if(done) return;
+      done = true;
+      cleanup();
+      reject(new Error("Timeout API"));
+    }, 15000);
 
-  startAuto();
-  loadOrders(true);
-})();
+    function cleanup(){
+      clearTimeout(timer);
+      try { delete window[cb]; } catch(e){}
+      try { s.remove(); } catch(e){}
+    }
 
-/************ UI ************/
-function show(id){
-  document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
+    window[cb] = (data) => {
+      if(done) return;
+      done = true;
+      cleanup();
+      resolve(data);
+    };
 
-  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
-  if (id === "orders") tabOrders.classList.add("active");
-  if (id === "products") tabProducts.classList.add("active");
-  if (id === "dash") tabDash.classList.add("active");
+    s.onerror = () => {
+      if(done) return;
+      done = true;
+      cleanup();
+      reject(new Error("API error"));
+    };
 
-  if (id === "products") loadProducts();
-  if (id === "dash") renderDashboardFromCache();
+    document.head.appendChild(s);
+  });
 }
 
+/***************
+ * UI helpers
+ ***************/
+const $ = (id)=>document.getElementById(id);
 function toast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.style.display = "block";
-  setTimeout(()=> t.style.display="none", 2500);
+  $("toast").style.display="block";
+  $("toast").textContent=String(msg||"");
+  setTimeout(()=>{$("toast").style.display="none";}, 3500);
 }
-
-/************ JSONP ************/
-function jsonp(action, params, cb){
-  const callback = "cb_" + Math.random().toString(36).slice(2);
-  params = params || {};
-  params.action = action;
-  params.k = ADMIN_KEY;
-  params.callback = callback;
-
-  const q = Object.keys(params).map(k=>k+"="+encodeURIComponent(params[k])).join("&");
-  const s = document.createElement("script");
-  s.src = API_URL + "?" + q;
-
-  const timeout = setTimeout(()=>{
-    try { delete window[callback]; } catch(e){}
-    try { s.remove(); } catch(e){}
-    cb({ ok:false, error:"Timeout API" });
-  }, 15000);
-
-  window[callback] = function(res){
-    clearTimeout(timeout);
-    delete window[callback];
-    s.remove();
-    cb(res);
-  };
-
-  document.body.appendChild(s);
+function showErr(msg){
+  $("err").style.display="block";
+  $("err").textContent=String(msg||"Erreur");
+  setTimeout(()=>{$("err").style.display="none";}, 6500);
 }
+function fmtHTG(n){
+  const x = Number(n||0);
+  return x.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2}) + " HTG";
+}
+function escapeHtml(s){
+  return String(s||"").replace(/[&<>"']/g, (m)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+}
+function norm(s){ return String(s||"").toLowerCase().trim(); }
 
-/************ AUTO REFRESH ************/
-function startAuto(){
-  stopAuto();
-  if (!AUTO_ON) { autoState.textContent = "OFF"; return; }
-  autoState.textContent = "ON";
-  autoTimer = setInterval(()=> loadOrders(false), AUTO_MS);
+/***************
+ * WhatsApp helpers
+ ***************/
+function digitsOnlyPhone(raw){
+  let d = String(raw||"").replace(/\D/g,"");
+  // si 8 chiffres (Haïti), on ajoute 509
+  if(d.length === 8) d = DEFAULT_COUNTRY_CODE + d;
+  // si commence par 0 et total 9/10 => on laisse tel quel (tu peux personnaliser)
+  return d;
 }
-function stopAuto(){
-  if (autoTimer) clearInterval(autoTimer);
-  autoTimer = null;
-}
-function toggleAuto(){
-  AUTO_ON = !AUTO_ON;
-  startAuto();
-  toast("Auto-refresh: " + (AUTO_ON ? "ON" : "OFF"));
-}
-
-/************ SOUND ************/
-function beep(){
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.type = "sine";
-    o.frequency.value = 880;
-    g.gain.value = 0.06;
-    o.start();
-    setTimeout(()=>{ o.stop(); ctx.close(); }, 160);
-  } catch(e){}
-}
-function testBeep(){ beep(); toast("Test son 🔔"); }
-
-/************ ✅ WhatsApp helpers ************/
-function normalizePhoneToWa(phone){
-  let p = String(phone||"").replace(/\s+/g,'').replace(/[()-]/g,'');
-  p = p.replace(/^\+/, '');
-  p = p.replace(/\D/g,'');
-  if (/^\d{8}$/.test(p)) p = "509" + p;
-  if (/^0\d{8}$/.test(p)) p = "509" + p.slice(1);
-  if (/^509\d{8}$/.test(p)) return p;
-  if (p.startsWith("509") && p.length >= 11) return p.slice(0,11);
-  return p;
-}
-function openWhatsAppToClient(phone, message){
-  const wa = normalizePhoneToWa(phone);
-  if(!wa || wa.length < 10){
-    alert("Téléphone client invalide pour WhatsApp: " + phone);
+function openWhatsAppTo(phone, message){
+  const p = digitsOnlyPhone(phone);
+  if(!p){
+    showErr("Téléphone client invalide, impossible d'ouvrir WhatsApp.");
     return;
   }
-  const url = "https://wa.me/" + wa + "?text=" + encodeURIComponent(message);
+  const url = "https://wa.me/" + p + "?text=" + encodeURIComponent(message);
   window.open(url, "_blank");
 }
 
-/************ COMMANDES ************/
-function loadOrders(manual){
-  const status = document.getElementById("statusFilter").value || "";
-  const params = {};
-  if (status) params.status = status;
+/***************
+ * Tabs
+ ***************/
+document.querySelectorAll(".tab").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    const tab = btn.dataset.tab;
 
-  jsonp("admin_listOrders", params, res=>{
-    lastSync.textContent = new Date().toLocaleTimeString();
+    $("tab-orders").style.display   = (tab==="orders") ? "block" : "none";
+    $("tab-products").style.display = (tab==="products") ? "block" : "none";
+    $("tab-place").style.display    = (tab==="place") ? "block" : "none";
 
-    const el = document.getElementById("ordersTable");
-    if (!res.ok) {
-      ordersMsg.innerHTML = "<span class='err'>" + esc(res.error || res.message || "Erreur") + "</span>";
-      el.innerHTML = "<tr><td>" + esc(res.error || res.message || "Erreur") + "</td></tr>";
+    if(tab==="orders") loadOrders();
+    if(tab==="products") loadProducts();
+    if(tab==="place") loadMenuForPlace();
+  });
+});
+
+$("refreshBtn").addEventListener("click", ()=>{
+  const active = document.querySelector(".tab.active")?.dataset?.tab || "orders";
+  if(active==="orders") loadOrders();
+  if(active==="products") loadProducts();
+  if(active==="place") loadMenuForPlace();
+});
+$("statusFilter").addEventListener("change", loadOrders);
+
+/***************
+ * Orders
+ ***************/
+async function loadOrders(){
+  try{
+    const k = $("adminKey").value.trim();
+    const status = $("statusFilter").value.trim();
+
+    const r = await apiJsonp("admin_listOrders", { k, limit:"120", status });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listOrders");
+
+    const orders = Array.isArray(r.orders) ? r.orders : [];
+    $("k_count").textContent = String(orders.length);
+    $("k_time").textContent = new Date().toLocaleString();
+
+    const tb = $("ordersTbody");
+    if(orders.length===0){
+      tb.innerHTML = `<tr><td colspan="7" class="muted">Aucune commande.</td></tr>`;
       return;
     }
-    ordersMsg.innerHTML = "";
 
-    const orders = Array.isArray(res.orders) ? res.orders : [];
-    lastOrdersCache = orders;
+    tb.innerHTML = orders.map(o=>{
+      const date = o.DateHeure || "";
+      const clientNom = o.ClientNom || "";
+      const tel = o.Telephone || "";
+      const type = o.TypeCommande || "";
+      const resume = (o.ResumeItems || "").toString() || (o.items ? o.items.map(i=>`${i.Nom} x${i.Quantite}`).join(", ") : "");
+      const total = fmtHTG(o.Total || 0);
+      const st = (o.Statut || "-");
 
-    // nouvelles commandes (Reçue)
-    const newIds = [];
-    for (const o of orders) {
-      const id = String(o.OrderID || o.orderId || "").trim();
-      if (id && !lastOrderIds.has(id) && String(o.Statut||"") === "Reçue") newIds.push(id);
-    }
-    if (newIds.length > 0) {
-      beep();
-      toast("Nouvelle commande (" + newIds.length + ") ✅");
-    }
+      const badgeClass =
+        /annul/i.test(st) ? "badge bad" :
+        /prêt|pret/i.test(st) ? "badge good" :
+        /reç/i.test(st) ? "badge warn" : "badge";
 
-    // mémoriser ids
-    const seenNow = new Set([...lastOrderIds]);
-    orders.forEach(o=>{
-      const id = String(o.OrderID || o.orderId || "").trim();
-      if (id) seenNow.add(id);
-    });
-    lastOrderIds = seenNow;
-    localStorage.setItem("bes_admin_last_ids", JSON.stringify(Array.from(lastOrderIds)));
+      const isSurPlace = /sur\s*place/i.test(type);
+      const isEmporter = /(à|a)\s*emporter/i.test(type);
 
-    // render table (✅ Paiement ajouté)
-    let html = "<tr><th>Date</th><th>Client</th><th>Téléphone</th><th>Type</th><th>Paiement</th><th>Total</th><th>Statut</th><th>Résumé</th><th>Actions</th></tr>";
+      return `
+        <tr>
+          <td>${escapeHtml(date)}</td>
+          <td><b>${escapeHtml(clientNom)}</b><div class="muted">${escapeHtml(tel)}</div></td>
+          <td>${escapeHtml(type)}</td>
+          <td>${escapeHtml(resume)}</td>
+          <td><b>${total}</b></td>
+          <td><span class="${badgeClass}">${escapeHtml(st)}</span></td>
+          <td>
+            <div class="actions">
+              ${isSurPlace ? `<button class="btn good" type="button"
+                onclick='readyConsume(${JSON.stringify(o).replace(/</g,"\\u003c")})'>
+                Prêt à consommer
+              </button>` : ``}
 
-    orders.forEach(o=>{
-      const oid = String(o.OrderID || "").trim();
-      const stat = String(o.Statut || "");
-      const rowClass = (stat === "Reçue") ? "new" : "";
-      const resume = o.ResumeItems || (o.items ? o.items.map(it=> (it.Nom||"")+"("+ (it.Quantite||0) +")").join(", ") : "");
-      const isLiv = String(o.TypeCommande||"").toLowerCase() === "livraison";
+              ${isEmporter ? `<button class="btn good" type="button"
+                onclick='readyTakeaway(${JSON.stringify(o).replace(/</g,"\\u003c")})'>
+                Prêt à emporter
+              </button>` : ``}
 
-      html += "<tr class='" + rowClass + "'>" +
-        "<td>" + esc(fmtDate(o.DateHeure)) + "</td>" +
-        "<td><b>" + esc(o.ClientNom || "") + "</b><br><span class='muted'>" + esc(o.Adresse || "") + "</span></td>" +
-        "<td>" + esc(o.Telephone || "") + "</td>" +
-        "<td>" + esc(o.TypeCommande || "") + "</td>" +
-        "<td>" + esc(o.PaymentMethod || "") + "</td>" +
-        "<td>" + esc(o.Total || "") + "</td>" +
-        "<td>" + esc(stat) + "</td>" +
-        "<td>" + esc(resume || "") + "</td>" +
-        "<td>" +
-          "<button class='small' onclick=\"setStatus('" + oid + "','Prête')\">Prête</button> " +
-          "<button class='small' onclick=\"readyToDeliver('" + oid + "')\">Prête à livrer</button> " +
-          "<button class='small' onclick=\"setStatus('" + oid + "','Annulée')\">Annuler</button> " +
-        "</td>" +
-      "</tr>";
-    });
+              <button class="btn" type="button"
+                onclick='printPOS80(${JSON.stringify(o).replace(/</g,"\\u003c")})'>
+                Imprimer 80mm
+              </button>
 
-    el.innerHTML = html;
-    renderDashboardFromCache();
-  });
-}
+              <button class="btn bad" type="button"
+                onclick="setStatus('${String(o.OrderID||"").replace(/'/g,"")}', 'Annuler')">
+                Annuler
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
 
-function setStatus(orderId, status){
-  jsonp("admin_setOrderStatus", { orderId: orderId, status: status }, res=>{
-    if (!res.ok) return toast("Erreur: " + (res.error || res.message || "status"));
-    toast("Statut → " + status);
-    loadOrders(true);
-  });
-}
-
-// ✅ Remplace Terminée: Prête à livrer + WhatsApp si Livraison
-function readyToDeliver(orderId){
-  const o = (lastOrdersCache || []).find(x => String(x.OrderID||"") === String(orderId));
-  if(!o){ toast("Commande introuvable"); return; }
-
-  setStatus(orderId, "Prête à livrer");
-
-  const isLivraison = String(o.TypeCommande||"").toLowerCase() === "livraison";
-  if(isLivraison){
-    const msg = "Votre commande est prête, la livraison se fait sous peu. Merci d'avoir choisi Bes Fast Food!";
-    openWhatsAppToClient(o.Telephone || "", msg);
+  }catch(e){
+    showErr(e.message || e);
+    $("ordersTbody").innerHTML = `<tr><td colspan="7" class="muted">Erreur de chargement.</td></tr>`;
   }
 }
 
-/************ PRODUITS ************/
-function loadProducts(){
-  jsonp("admin_listProducts", {}, res=>{
-    const el = document.getElementById("productsTable");
-    if (!res.ok) { el.innerHTML = "<tr><td>"+esc(res.error||res.message||"Erreur")+"</td></tr>"; return; }
+window.setStatus = async function(orderId, status){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_setOrderStatus", { k, orderId, status });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_setOrderStatus");
+    toast("Statut mis à jour ✅");
+    loadOrders();
+  }catch(e){
+    showErr(e.message || e);
+  }
+};
 
-    productsCache = Array.isArray(res.products) ? res.products : [];
+// 1) Prêt à consommer + WhatsApp (sur place)
+window.readyConsume = async function(order){
+  try{
+    const oid = String(order.OrderID||"").trim();
+    if(!oid) throw new Error("OrderID manquant");
+    await setStatus(oid, "Prêt à consommer");
 
-    // datalists
-    const catSet = new Set();
-    const pidList = [];
-    productsCache.forEach(p=>{
-      pidList.push(String(p.ProductID||""));
-      if (p.Categorie) catSet.add(String(p.Categorie));
-    });
-    document.getElementById("catList").innerHTML =
-      Array.from(catSet).sort().map(c=>"<option value=\"" + escAttr(c) + "\"></option>").join("");
-    document.getElementById("prodIdList").innerHTML =
-      pidList.map(id=>"<option value=\"" + escAttr(id) + "\"></option>").join("");
+    const msg = "Votre commande est prête à consommer. Merci d'avoir choisi Bes Fast Food!";
+    openWhatsAppTo(order.Telephone, msg);
+  }catch(e){
+    showErr(e.message || e);
+  }
+};
 
-    // table
-    let html = "<tr><th>ID</th><th>Nom</th><th>Cat.</th><th>Prix</th><th>Stock</th><th>Maj stock</th></tr>";
+// 2) Prêt à emporter + WhatsApp (à emporter)
+window.readyTakeaway = async function(order){
+  try{
+    const oid = String(order.OrderID||"").trim();
+    if(!oid) throw new Error("OrderID manquant");
+    await setStatus(oid, "Prêt à emporter");
 
-    productsCache.forEach((p, idx) => {
-      const pid = String(p.ProductID || "");
-      html +=
-        "<tr class='prodRow' data-idx='" + idx + "'>" +
-          "<td><b>" + esc(pid) + "</b></td>" +
-          "<td>" + esc(p.Nom || "") + "</td>" +
-          "<td>" + esc(p.Categorie || "") + "</td>" +
-          "<td>" + esc(p.Prix || 0) + "</td>" +
-          "<td>" + esc(p.Stock || 0) + "</td>" +
-          "<td>" +
-            "<input style='max-width:120px' type='number' id='stk_" + escAttr(pid) + "' value='" + escAttr(p.Stock || 0) + "' onclick='event.stopPropagation()' /> " +
-            "<button class='small' onclick=\"event.stopPropagation(); quickStock('" + pid + "')\">OK</button>" +
-          "</td>" +
-        "</tr>";
-    });
+    const msg = "Votre commande est prête à emporter. Merci d'avoir choisi Bes Fast Food!";
+    openWhatsAppTo(order.Telephone, msg);
+  }catch(e){
+    showErr(e.message || e);
+  }
+};
 
-    el.innerHTML = html;
+/***************
+ * Print POS 80mm
+ ***************/
+window.printPOS80 = function(order){
+  try{
+    const items = Array.isArray(order.items) ? order.items : [];
+    const resume = String(order.ResumeItems||"").trim();
+    const rows = items.length
+      ? items.map(i=>{
+          const name = escapeHtml(i.Nom||"");
+          const q = Number(i.Quantite||0);
+          const st = fmtHTG(i.SousTotal||0);
+          return `<tr><td class="name">${name}</td><td class="qty">${q}</td><td class="amt">${st}</td></tr>`;
+        }).join("")
+      : `<tr><td colspan="3">${escapeHtml(resume)}</td></tr>`;
 
-    document.querySelectorAll("#productsTable .prodRow").forEach(tr => {
-      tr.addEventListener("click", () => {
-        const i = Number(tr.dataset.idx);
-        fillProduct(productsCache[i]);
-      });
-    });
+    const w = window.open("", "_blank", "width=420,height=800");
+    w.document.write(`
+<!doctype html>
+<html><head><meta charset="utf-8"/>
+<title>POS 80mm</title>
+<style>
+  /* 80mm POS */
+  @page { size: 80mm auto; margin: 6mm; }
+  body{ width:80mm; margin:0; font-family: Arial, sans-serif; color:#000; }
+  .center{text-align:center}
+  .muted{color:#444;font-size:11px}
+  h1{font-size:16px;margin:0;font-weight:800}
+  .hr{border-top:1px dashed #000;margin:8px 0}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td{padding:4px 0;vertical-align:top}
+  td.name{width:60%}
+  td.qty{width:10%;text-align:right}
+  td.amt{width:30%;text-align:right}
+  .tot{font-size:14px;font-weight:800;text-align:right;margin-top:8px}
+  .small{font-size:11px}
+</style>
+</head>
+<body>
+  <div class="center">
+    <h1>BES FAST FOOD</h1>
+    <div class="muted small">${escapeHtml(order.DateHeure||"")}</div>
+  </div>
 
-    prodMsg.innerHTML = "<span class='ok'>Produits chargés ✅</span>";
+  <div class="hr"></div>
+
+  <div class="small"><b>Client:</b> ${escapeHtml(order.ClientNom||"")}</div>
+  <div class="small"><b>Tél:</b> ${escapeHtml(order.Telephone||"")}</div>
+  <div class="small"><b>Type:</b> ${escapeHtml(order.TypeCommande||"")}</div>
+  ${order.Adresse ? `<div class="small"><b>Adresse:</b> ${escapeHtml(order.Adresse||"")}</div>` : ``}
+
+  <div class="hr"></div>
+
+  <table>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+
+  <div class="hr"></div>
+  <div class="tot">TOTAL: ${fmtHTG(order.Total||0)}</div>
+
+  <div class="hr"></div>
+  <div class="center muted small">Merci d'avoir choisi BES Fast Food!</div>
+
+  <script>
+    window.onload=()=>{ window.print(); }
+  </script>
+</body></html>
+    `);
+    w.document.close();
+  }catch(e){
+    showErr("Impression: " + (e.message || e));
+  }
+};
+
+/***************
+ * Products
+ ***************/
+async function loadProducts(){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_listProducts", { k });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listProducts");
+    const list = Array.isArray(r.products) ? r.products : [];
+
+    const html = list.map(p=>{
+      const actif = String(p.Actif||"TRUE").toUpperCase() !== "FALSE";
+      const stock = Number(p.Stock||0);
+      const name = escapeHtml(p.Nom||"");
+      const cat = escapeHtml(p.Categorie||"");
+      return `
+        <div class="prod">
+          <div style="min-width:0">
+            <b>${name}</b>
+            <div class="muted">${cat}</div>
+            <div class="muted">Prix: ${fmtHTG(p.Prix||0)} • Stock: ${stock} • Actif: ${actif ? "Oui" : "Non"}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    $("productsBox").innerHTML = `<div class="menuGrid">${html || `<div class="muted">Aucun produit.</div>`}</div>`;
+  }catch(e){
+    showErr(e.message || e);
+    $("productsBox").textContent = "Erreur.";
+  }
+}
+
+/***************
+ * Place order (submitOrderLite + getProducts)
+ ***************/
+let menuProducts = [];
+const placeCart = {}; // { productId: qty }
+
+function syncPlaceAddr(){
+  const isLiv = norm($("p_type").value)==="livraison";
+  $("p_addrWrap").style.display = isLiv ? "block" : "none";
+  if(!isLiv) $("p_addr").value="";
+}
+
+function calcPlaceTotal(){
+  let total = 0;
+  for(const [pid, qty] of Object.entries(placeCart)){
+    const p = menuProducts.find(x=>String(x.ProductID)===String(pid));
+    if(!p) continue;
+    total += Number(p.Prix||0) * Number(qty||0);
+  }
+  return total;
+}
+
+function renderPlaceCart(){
+  const entries = Object.entries(placeCart);
+  const total = calcPlaceTotal();
+  $("placeTotal").textContent = fmtHTG(total);
+
+  if(entries.length===0){
+    $("placeCartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+  }else{
+    $("placeCartItems").innerHTML = entries.map(([pid, qty])=>{
+      const p = menuProducts.find(x=>String(x.ProductID)===String(pid));
+      const name = p ? p.Nom : ("Produit " + pid);
+      const sub = (p ? Number(p.Prix||0) : 0) * Number(qty||0);
+      return `
+        <div class="row sp" style="margin:6px 0">
+          <div style="min-width:0">
+            <b>${escapeHtml(name)}</b>
+            <div class="muted">${fmtHTG(p?.Prix||0)} × ${qty} = <b>${fmtHTG(sub)}</b></div>
+          </div>
+          <div class="row" style="gap:6px">
+            <button class="mini" type="button" onclick="placeQty('${pid}', ${Number(qty)-1})">−</button>
+            <button class="mini" type="button" onclick="placeQty('${pid}', ${Number(qty)+1})">+</button>
+            <button class="mini" type="button" onclick="placeRm('${pid}')">x</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  validatePlaceOrderBtn();
+}
+
+window.placeQty = function(pid, q){
+  const next = Number(q||0);
+  if(next <= 0) delete placeCart[pid];
+  else placeCart[pid] = next;
+  renderPlaceCart();
+};
+window.placeRm = function(pid){
+  delete placeCart[pid];
+  renderPlaceCart();
+};
+
+function validatePlaceOrderBtn(){
+  const itemsCount = Object.keys(placeCart).length;
+  const nameOk = !!$("p_name").value.trim();
+  const phoneOk = !!$("p_phone").value.trim();
+  const payOk = !!$("p_pay").value.trim();
+
+  const isLiv = norm($("p_type").value)==="livraison";
+  const addrOk = !isLiv || !!$("p_addr").value.trim();
+
+  $("placeOrderBtn").disabled = !(itemsCount>0 && nameOk && phoneOk && payOk && addrOk);
+}
+
+function renderMenu(){
+  const q = norm($("menuSearch").value);
+  const list = menuProducts.filter(p=>{
+    const hay = norm(p.Nom) + " " + norm(p.Categorie);
+    return !q || hay.includes(q);
   });
-}
 
-function fillProduct(p){
-  pId.value = p.ProductID || "";
-  pName.value = p.Nom || "";
-  pCat.value = p.Categorie || "";
-  pPrice.value = p.Prix || 0;
-  pStock.value = p.Stock || 0;
-}
-
-function clearForm(){
-  pId.value = "";
-  pName.value = "";
-  pCat.value = "";
-  pPrice.value = "";
-  pStock.value = "";
-  prodMsg.innerHTML = "";
-}
-
-function saveProduct(){
-  const product = {
-    ProductID: (pId.value || "").trim(),
-    Nom: (pName.value || "").trim(),
-    Categorie: (pCat.value || "").trim(),
-    Prix: Number(pPrice.value || 0),
-    Stock: Number(pStock.value || 0)
-  };
-  if (!product.ProductID || !product.Nom) {
-    prodMsg.innerHTML = "<span class='err'>ProductID et Nom obligatoires</span>";
+  if(list.length===0){
+    $("menuBox").innerHTML = `<div class="muted">Aucun produit trouvé.</div>`;
     return;
   }
-  jsonp("admin_upsertProduct", { product: JSON.stringify(product) }, res=>{
-    prodMsg.innerHTML = res.ok ? "<span class='ok'>Enregistré ✅</span>" : "<span class='err'>"+esc(res.error||res.message||"Erreur")+"</span>";
-    loadProducts();
-  });
+
+  $("menuBox").innerHTML = `
+    <div class="menuGrid">
+      ${list.map(p=>{
+        return `
+          <div class="prod">
+            <div style="min-width:0">
+              <b>${escapeHtml(p.Nom||"")}</b>
+              <div class="muted">${escapeHtml(p.Categorie||"")}</div>
+              <div class="muted">Prix: <b>${fmtHTG(p.Prix||0)}</b> • Stock: ${escapeHtml(p.Stock||"")}</div>
+            </div>
+            <div>
+              <button class="btn good" type="button" onclick="placeAdd('${String(p.ProductID).replace(/'/g,"")}')">Ajouter</button>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
-function deactivateProduct(){
-  const pid = (pId.value || "").trim();
-  if (!pid) { prodMsg.innerHTML = "<span class='err'>Entre ProductID</span>"; return; }
-  if (!confirm("Désactiver " + pid + " ?")) return;
-  jsonp("admin_deleteProduct", { productId: pid }, res=>{
-    prodMsg.innerHTML = res.ok ? "<span class='ok'>Désactivé ✅</span>" : "<span class='err'>"+esc(res.error||res.message||"Erreur")+"</span>";
-    loadProducts();
-  });
+window.placeAdd = function(pid){
+  placeCart[String(pid)] = (Number(placeCart[String(pid)]||0) + 1);
+  renderPlaceCart();
+};
+
+async function loadMenuForPlace(){
+  try{
+    const r = await apiJsonp("getProducts", {});
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur getProducts");
+
+    // Ton Apps Script filtre déjà Stock > 0
+    menuProducts = Array.isArray(r.products) ? r.products : [];
+    renderMenu();
+    renderPlaceCart();
+  }catch(e){
+    showErr(e.message || e);
+    $("menuBox").textContent = "Erreur menu.";
+  }
 }
 
-function quickStock(productId){
-  const inp = document.getElementById("stk_" + productId);
-  const stock = Number(inp.value || 0);
-  jsonp("admin_updateStock", { productId: productId, stock: stock }, res=>{
-    if (!res.ok) return toast("Erreur stock: " + (res.error||res.message||""));
-    toast("Stock OK ✅");
-    loadProducts();
-  });
-}
+$("menuSearch").addEventListener("input", renderMenu);
+$("reloadMenuBtn").addEventListener("click", loadMenuForPlace);
+$("p_type").addEventListener("change", ()=>{ syncPlaceAddr(); validatePlaceOrderBtn(); });
+$("p_name").addEventListener("input", validatePlaceOrderBtn);
+$("p_phone").addEventListener("input", validatePlaceOrderBtn);
+$("p_pay").addEventListener("change", validatePlaceOrderBtn);
+$("p_addr").addEventListener("input", validatePlaceOrderBtn);
+$("p_note").addEventListener("input", validatePlaceOrderBtn);
 
-/************ DASHBOARD ************/
-function renderDashboardFromCache(){
-  const orders = Array.isArray(lastOrdersCache) ? lastOrdersCache : [];
-  const todayKey = (new Date()).toISOString().slice(0,10);
+$("clearPlaceCartBtn").addEventListener("click", ()=>{
+  for(const k of Object.keys(placeCart)) delete placeCart[k];
+  renderPlaceCart();
+  toast("Panier vidé ✅");
+});
 
-  const todays = orders.filter(o=>{
-    const d = parseDateAny(o.DateHeure);
-    if (!d) return false;
-    return d.toISOString().slice(0,10) === todayKey;
-  });
+$("placeOrderBtn").addEventListener("click", async ()=>{
+  try{
+    const items = Object.entries(placeCart).map(([ProductID, Quantite])=>({ ProductID, Quantite }));
+    if(items.length===0) throw new Error("Panier vide");
 
-  const count = todays.length;
-  const total = todays.reduce((s,o)=> s + Number(o.Total||0), 0);
+    const typeCommande = $("p_type").value;
+    const payload = {
+      guestId: "admin-pos",
+      clientNom: $("p_name").value.trim(),
+      telephone: $("p_phone").value.trim(),
+      typeCommande,
+      adresse: $("p_addr").value.trim(),
+      noteCommande: $("p_note").value.trim(),
+      paymentMethod: $("p_pay").value.trim(),
+      items
+    };
 
-  let itemsQty = 0;
-  const byName = new Map();
-  todays.forEach(o=>{
-    const items = Array.isArray(o.items) ? o.items : [];
-    items.forEach(it=>{
-      const name = String(it.Nom||"").trim() || String(it.ProductID||"").trim();
-      const q = Number(it.Quantite||0);
-      if (!name) return;
-      itemsQty += q;
-      byName.set(name, (byName.get(name)||0) + q);
-    });
-  });
+    const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur submitOrderLite");
 
-  dOrders.textContent = String(count);
-  dOrdersSub.textContent = "Date: " + todayKey;
-  dTotal.textContent = String(total);
-  dItems.textContent = String(itemsQty);
+    toast("Commande enregistrée ✅ ID: " + (r.orderId || "OK"));
 
-  const top = Array.from(byName.entries()).sort((a,b)=> b[1]-a[1]).slice(0, 15);
-  let html = "<tr><th>Produit</th><th>Quantité</th></tr>";
-  if (top.length === 0) html += "<tr><td colspan='2'>Aucune vente aujourd’hui</td></tr>";
-  else top.forEach(([n,q])=>{
-    html += "<tr><td>" + esc(n) + "</td><td>" + esc(q) + "</td></tr>";
-  });
-  topTable.innerHTML = html;
-}
+    // Ouvrir WhatsApp vers BES (optionnel : tu peux enlever si tu veux)
+    // Ici on ouvre vers le numéro BES (si tu veux envoyer au staff).
+    // Si tu veux, je te fais aussi “WhatsApp staff” configurable.
+    const staffPhone = "50940430164";
+    const msg = `BES – Commande comptoir\nNom: ${payload.clientNom}\nTel: ${payload.telephone}\nType: ${payload.typeCommande}\nTotal: ${fmtHTG(r.total||0)}\nID: ${r.orderId||""}`;
+    window.open("https://wa.me/" + staffPhone + "?text=" + encodeURIComponent(msg), "_blank");
 
-/************ HELPERS ************/
-function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
-function escAttr(s){ return String(s ?? "").replace(/"/g,"&quot;"); }
-function parseDateAny(v){
-  if (!v) return null;
-  if (v instanceof Date) return v;
-  const d = new Date(String(v));
-  if (isNaN(d.getTime())) return null;
-  return d;
-}
-function fmtDate(v){
-  const d = parseDateAny(v);
-  if (!d) return String(v||"");
-  return d.toLocaleString();
-}
+    // reset
+    for(const k of Object.keys(placeCart)) delete placeCart[k];
+    $("p_note").value="";
+    $("p_addr").value="";
+    $("p_type").value="Sur place";
+    $("p_pay").value="";
+    syncPlaceAddr();
+    renderPlaceCart();
+
+    // recharge menu (stock a pu changer)
+    loadMenuForPlace();
+
+  }catch(e){
+    showErr(e.message || e);
+  }
+});
+
+/***************
+ * Boot
+ ***************/
+(function(){
+  syncPlaceAddr();
+  loadOrders();
+})();
 </script>
-
 </body>
 </html>
