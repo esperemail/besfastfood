@@ -281,6 +281,25 @@
       pointer-events:none;
       filter:saturate(.9);
     }
+
+    /* ✅ paiement */
+    .payBox{
+      border:1px solid rgba(93,64,55,.14);
+      border-radius:16px;
+      padding:10px 12px;
+      background: rgba(255,255,255,.7);
+    }
+    .payRow{display:flex; gap:10px; align-items:flex-start}
+    .payRow input{width:auto}
+    .payInfo{font-weight:1000}
+    .paySub{font-size:12px; color:var(--muted); margin-top:2px}
+    .proofImg{
+      display:none;
+      max-width:100%;
+      border-radius:14px;
+      margin-top:10px;
+      border:1px solid rgba(93,64,55,.18);
+    }
   </style>
 </head>
 
@@ -350,7 +369,7 @@
 
         <div class="row">
           <b>Total</b>
-          <b id="total">0.00</b>
+          <b id="total">0.00 HTG</b>
         </div>
 
         <div class="hr"></div>
@@ -387,6 +406,41 @@
           <textarea id="noteCommande" placeholder="Ex: sans piment..."></textarea>
         </div>
 
+        <!-- ✅ PAIEMENT OBLIGATOIRE -->
+        <div class="hr"></div>
+        <div style="font-weight:1000;margin-bottom:8px">Paiement (obligatoire)</div>
+
+        <div class="field">
+          <div class="label">Méthode <span class="req">Obligatoire</span></div>
+
+          <div class="payBox" style="margin-bottom:8px">
+            <label class="payRow">
+              <input type="radio" name="paymentMethod" value="Moncash">
+              <div>
+                <div class="payInfo">MonCash — 48094439</div>
+                <div class="paySub">Code: RALJnPIE</div>
+              </div>
+            </label>
+          </div>
+
+          <div class="payBox">
+            <label class="payRow">
+              <input type="radio" name="paymentMethod" value="Natcash">
+              <div>
+                <div class="payInfo">NatCash — 40430164</div>
+                <div class="paySub">Code: RALJnPIE</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">Preuve de paiement <span class="req">Obligatoire</span></div>
+          <input id="paymentProof" type="file" accept="image/*" capture="environment">
+          <img id="proofPreview" class="proofImg" alt="Preuve de paiement">
+          <div class="muted" style="margin-top:6px">Sans preuve (image), la commande est refusée.</div>
+        </div>
+
         <div style="margin-top:12px">
           <button class="btn btnPrimary" id="checkoutBtn" type="button">Envoyer la commande ✅</button>
           <div id="toast" class="toast"></div>
@@ -421,7 +475,11 @@
   const $ = (id)=>document.getElementById(id);
   const CART_KEY = "bes_cart_v1";
 
-  function money(x){ return Number(x||0).toFixed(2); }
+  // ✅ Format demandé: 1,250.00 HTG
+  function money(x){
+    const n = Number(x||0);
+    return n.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }) + " HTG";
+  }
   function norm(s){ return String(s||"").toLowerCase().trim(); }
 
   function showErr(t){
@@ -498,6 +556,63 @@
     const isLiv = (t === "livraison");
     $("addrWrap").style.display = isLiv ? "block" : "none";
     if(!isLiv) $("adresse").value = "";
+  }
+
+  /*********************
+   * ✅ PAYMENT HELPERS
+   *********************/
+  function getPaymentMethod(){
+    const el = document.querySelector('input[name="paymentMethod"]:checked');
+    return el ? el.value : "";
+  }
+
+  function fileToBase64(file){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = ()=> resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  function setupPaymentUI(){
+    const inp = $("paymentProof");
+    const img = $("proofPreview");
+
+    inp.addEventListener("change", ()=>{
+      clearToast();
+      hideErr();
+
+      if(inp.files && inp.files[0]){
+        const f = inp.files[0];
+
+        // Limite taille 6MB (optionnel)
+        const maxMB = 6;
+        if(f.size > maxMB * 1024 * 1024){
+          showErr("Image trop grande. Max " + maxMB + "MB.");
+          inp.value = "";
+          img.style.display = "none";
+          img.src = "";
+          return;
+        }
+
+        const url = URL.createObjectURL(f);
+        img.src = url;
+        img.style.display = "block";
+      }else{
+        img.style.display = "none";
+        img.src = "";
+      }
+    });
+  }
+
+  function resetPaymentUI(){
+    document.querySelectorAll('input[name="paymentMethod"]').forEach(r=> r.checked = false);
+    const inp = $("paymentProof");
+    const img = $("proofPreview");
+    inp.value = "";
+    img.style.display = "none";
+    img.src = "";
   }
 
   /*********************
@@ -719,6 +834,22 @@
         return;
       }
 
+      // ✅ paiement obligatoire
+      const method = getPaymentMethod();
+      const proofInput = $("paymentProof");
+      const proofFile = (proofInput.files && proofInput.files[0]) ? proofInput.files[0] : null;
+
+      if(!method){
+        showErr("Choisis une méthode de paiement (MonCash ou NatCash).");
+        return;
+      }
+      if(!proofFile){
+        showErr("Ajoute une preuve de paiement (image).");
+        return;
+      }
+
+      const proofBase64 = await fileToBase64(proofFile);
+
       const payload = {
         guestId: state.guestId,
         clientNom: $("clientNom").value.trim(),
@@ -726,8 +857,11 @@
         typeCommande: $("typeCommande").value,
         adresse: $("adresse").value.trim(),
         noteCommande: $("noteCommande").value.trim(),
-        // On envoie seulement ProductID + Quantite (serveur récupère le prix officiel)
-        items: items.map(it => ({ ProductID: it.ProductID, Quantite: it.Quantite }))
+        items: items.map(it => ({ ProductID: it.ProductID, Quantite: it.Quantite })),
+
+        // ✅ champs paiement envoyés à submitOrder
+        paymentMethod: method,      // "Moncash" ou "Natcash"
+        paymentProof: proofBase64   // "data:image/...;base64,...."
       };
 
       if(!payload.clientNom || !payload.telephone){
@@ -750,11 +884,14 @@
       clearCart();
       renderCart();
 
-      // Optionnel: vider champs
+      // reset champs
       $("noteCommande").value = "";
       $("adresse").value = "";
       $("typeCommande").value = "Sur place";
       syncAddressVisibility();
+
+      // ✅ reset paiement
+      resetPaymentUI();
 
     }catch(e){
       showErr(e.message || e);
@@ -777,11 +914,11 @@
     syncAddressVisibility();
     loadProductsUI();
     renderCart();
+
+    // ✅ init paiement
+    setupPaymentUI();
   })();
 </script>
 
 </body>
 </html>
-
-
-
