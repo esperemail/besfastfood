@@ -7,11 +7,11 @@
 
   <style>
     :root{
-      --y:#FFC107;       /* jaune */
-      --o:#FF9800;       /* orange */
-      --r:#D32F2F;       /* rouge */
-      --g:#2E7D32;       /* vert */
-      --b:#5D4037;       /* brun */
+      --y:#FFC107;
+      --o:#FF9800;
+      --r:#D32F2F;
+      --g:#2E7D32;
+      --b:#5D4037;
       --bg:#fff7e6;
       --card:#ffffff;
       --muted:#6b7280;
@@ -29,7 +29,6 @@
         var(--bg);
     }
 
-    /* ===== HEADER ===== */
     header{
       position:sticky; top:0; z-index:50;
       background: linear-gradient(90deg, var(--y), var(--o));
@@ -59,14 +58,10 @@
       display:flex; align-items:center; justify-content:center;
       overflow:hidden;
       flex:0 0 auto;
-    }
-    .logoWrap img{
-      width:100%; height:100%;
-      object-fit:contain;
-      display:block;
+      font-weight:1000;
+      color:#2b1b16;
     }
 
-    /* ✅ B E S même largeur que Fast Food */
     .brandText{
       display:flex;
       flex-direction:column;
@@ -102,15 +97,7 @@
       white-space:nowrap;
       box-shadow: 0 10px 20px rgba(93,64,55,.12);
     }
-    @media (max-width:520px){
-      .brandText{width:108px;min-width:108px}
-      .brandName{font-size:18px; letter-spacing:6px}
-      .brandTag{font-size:12px}
-      .pill{padding:9px 12px}
-      .logoWrap{width:50px;height:50px}
-    }
 
-    /* ===== APP ===== */
     .wrap{max-width:1100px; margin:auto; padding:16px}
     .grid{display:grid; grid-template-columns: 2fr 1fr; gap:14px}
     @media(max-width:900px){ .grid{grid-template-columns:1fr} }
@@ -163,21 +150,9 @@
         #fff;
       padding:12px;
       transition: transform .18s ease, box-shadow .18s ease;
-      position:relative;
     }
     .prod:hover{ transform: translateY(-2px); box-shadow: 0 18px 34px rgba(93,64,55,.16); }
 
-    .prodTop{display:flex; gap:10px}
-    .thumb{
-      width:72px; height:72px; border-radius:16px;
-      background: rgba(255,152,0,.16);
-      border:1px solid rgba(93,64,55,.14);
-      overflow:hidden;
-      flex:0 0 auto;
-      display:flex; align-items:center; justify-content:center;
-      font-weight:1000; color:#2b1b16;
-    }
-    .thumb img{width:100%; height:100%; object-fit:cover; display:block}
     .title{font-weight:1000; letter-spacing:.2px; margin:0}
     .desc{margin-top:6px; font-size:13px; color:var(--muted)}
     .price{
@@ -187,15 +162,6 @@
       padding:6px 10px; border-radius:999px; white-space:nowrap;
       display:inline-block;
     }
-    .badges{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
-    .badge{
-      font-size:12px; padding:6px 10px; border-radius:999px;
-      border:1px solid rgba(93,64,55,.14);
-      background: rgba(255,255,255,.75);
-      font-weight:1000; color:#2b1b16;
-    }
-    .badge.green{border-color:rgba(46,125,50,.25); color:rgba(46,125,50,.95)}
-    .badge.pink{border-color:rgba(211,47,47,.20); color:rgba(211,47,47,.90)}
 
     .btn{
       width:100%;
@@ -216,6 +182,11 @@
     .btnAdd{
       background: linear-gradient(90deg, #111, #2b1b16);
       color:#fff; border:none;
+    }
+    .btn[disabled]{
+      opacity:.55;
+      cursor:not-allowed;
+      filter:saturate(.9);
     }
 
     .cartBody{padding:14px}
@@ -270,35 +241,41 @@
       font-weight:1000;
     }
 
-    .loading{
-      padding:14px;
-      color:var(--muted);
-      font-weight:900;
-    }
+    .dim{ opacity:.65; pointer-events:none; filter:saturate(.9); }
 
-    .dim{
-      opacity:.65;
-      pointer-events:none;
-      filter:saturate(.9);
-    }
-
-    /* ✅ paiement */
     .payBox{
-      border:1px solid rgba(93,64,55,.14);
+      border:1px solid rgba(93,64,55,.16);
+      background: rgba(255,255,255,.72);
       border-radius:16px;
-      padding:10px 12px;
-      background: rgba(255,255,255,.7);
-    }
-    .payRow{display:flex; gap:10px; align-items:flex-start}
-    .payRow input{width:auto}
-    .payInfo{font-weight:1000}
-    .paySub{font-size:12px; color:var(--muted); margin-top:2px}
-    .proofImg{
-      display:none;
-      max-width:100%;
-      border-radius:14px;
+      padding:12px;
       margin-top:10px;
-      border:1px solid rgba(93,64,55,.18);
+    }
+    .payRow{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:10px;
+      border-radius:14px;
+      border:1px solid rgba(93,64,55,.14);
+      background:#fff;
+      margin-top:8px;
+    }
+    .payRow input{ width:auto; margin-top:3px; }
+    .payMeta{ font-size:13px; color:#2b1b16; }
+    .payMeta b{ font-weight:1000; }
+    .preview{
+      margin-top:8px;
+      border-radius:14px;
+      overflow:hidden;
+      border:1px solid rgba(93,64,55,.14);
+      background:#fff;
+      display:none;
+    }
+    .preview img{
+      width:100%;
+      display:block;
+      max-height:240px;
+      object-fit:contain;
     }
   </style>
 </head>
@@ -307,9 +284,7 @@
 <header>
   <div class="topbar">
     <div class="brand">
-      <div class="logoWrap">
-        <img src="logo.jpg" alt="BES Fast Food">
-      </div>
+      <div class="logoWrap">BES</div>
       <div class="brandText">
         <div class="brandName">BES</div>
         <div class="brandTag">Fast Food</div>
@@ -323,14 +298,13 @@
   <div id="err" class="err"></div>
 
   <div class="grid">
-
     <!-- MENU -->
     <div class="card">
       <div class="cardHead">
         <div class="row">
           <div>
             <div style="font-weight:1000;font-size:18px">Menu</div>
-            <div class="muted">Disponible </div>
+            <div class="muted">Produits disponibles (mode statique)</div>
           </div>
           <div style="max-width:260px; width:100%">
             <select id="catFilter"></select>
@@ -345,9 +319,7 @@
         <button class="btn" id="resetCartBtn" type="button" style="max-width:180px">Vider panier</button>
       </div>
 
-      <div id="products" class="products">
-        <div class="loading">Chargement du menu...</div>
-      </div>
+      <div id="products" class="products"></div>
     </div>
 
     <!-- PANIER -->
@@ -356,7 +328,7 @@
         <div class="row">
           <div>
             <div style="font-weight:1000;font-size:18px">Panier</div>
-            <div class="muted">Local & instantané 🔥</div>
+            <div class="muted">Paiement obligatoire + preuve</div>
           </div>
           <button class="btn" id="refreshBtn" type="button" style="max-width:170px">Actualiser</button>
         </div>
@@ -395,7 +367,6 @@
           </select>
         </div>
 
-        <!-- Adresse obligatoire si Livraison -->
         <div class="field" id="addrWrap" style="display:none">
           <div class="label">Adresse de livraison <span class="req">Obligatoire</span></div>
           <textarea id="adresse" placeholder="Ex: Rue..., maison..., repère..."></textarea>
@@ -406,43 +377,42 @@
           <textarea id="noteCommande" placeholder="Ex: sans piment..."></textarea>
         </div>
 
-        <!-- ✅ PAIEMENT OBLIGATOIRE -->
-        <div class="hr"></div>
-        <div style="font-weight:1000;margin-bottom:8px">Paiement (obligatoire)</div>
-
-        <div class="field">
-          <div class="label">Méthode <span class="req">Obligatoire</span></div>
-
-          <div class="payBox" style="margin-bottom:8px">
-            <label class="payRow">
-              <input type="radio" name="paymentMethod" value="Moncash">
-              <div>
-                <div class="payInfo">MonCash — 48094439</div>
-                <div class="paySub">Code: RALJnPIE</div>
-              </div>
-            </label>
+        <!-- ✅ PAIEMENT -->
+        <div class="payBox">
+          <div style="font-weight:1000">Paiement (obligatoire)</div>
+          <div class="muted" style="margin-top:4px">
+            Choisis une méthode puis ajoute une preuve (photo ou image).
           </div>
 
-          <div class="payBox">
-            <label class="payRow">
-              <input type="radio" name="paymentMethod" value="Natcash">
-              <div>
-                <div class="payInfo">NatCash — 40430164</div>
-                <div class="paySub">Code: RALJnPIE</div>
-              </div>
-            </label>
-          </div>
-        </div>
+          <label class="payRow">
+            <input type="radio" name="paymentMethod" value="Moncash">
+            <div class="payMeta">
+              <b>MonCash</b><br>
+              48094439 — RALJnPIE
+            </div>
+          </label>
 
-        <div class="field">
-          <div class="label">Preuve de paiement <span class="req">Obligatoire</span></div>
-          <input id="paymentProof" type="file" accept="image/*" capture="environment">
-          <img id="proofPreview" class="proofImg" alt="Preuve de paiement">
-          <div class="muted" style="margin-top:6px">Sans preuve (image), la commande est refusée.</div>
+          <label class="payRow">
+            <input type="radio" name="paymentMethod" value="Natcash">
+            <div class="payMeta">
+              <b>NatCash</b><br>
+              40430164 — RALJnPIE
+            </div>
+          </label>
+
+          <div class="field" style="margin-top:10px">
+            <div class="label">Preuve de paiement <span class="req">Obligatoire</span></div>
+            <input id="paymentProof" type="file" accept="image/*" capture="environment">
+            <div class="muted" style="margin-top:6px">Formats: JPG/PNG/WEBP</div>
+
+            <div class="preview" id="proofPreview">
+              <img id="proofImg" alt="Aperçu preuve">
+            </div>
+          </div>
         </div>
 
         <div style="margin-top:12px">
-          <button class="btn btnPrimary" id="checkoutBtn" type="button">Envoyer la commande ✅</button>
+          <button class="btn btnPrimary" id="checkoutBtn" type="button" disabled>Passer la commande ✅</button>
           <div id="toast" class="toast"></div>
         </div>
       </div>
@@ -453,20 +423,15 @@
 
 <script>
   /*********************
-   * CONFIG
-   *********************/
-  const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec";
-
-  /*********************
    * PRODUITS (STATIC)
    *********************/
   const STATIC_PRODUCTS = [
-    { ProductID:"1", Nom:"Cornet (Pack de 6)", Prix:1250, Description:"", Categorie:"Nourriture", Image:"" },
-    { ProductID:"2", Nom:"Gratiné simple",      Prix:1000, Description:"", Categorie:"Nourriture", Image:"" },
-    { ProductID:"3", Nom:"Gratiné wings",       Prix:1000, Description:"", Categorie:"Nourriture", Image:"" },
-    { ProductID:"4", Nom:"Wings simple",        Prix:750,  Description:"", Categorie:"Nourriture", Image:"" },
-    { ProductID:"5", Nom:"Cupcake (Pack de 6)", Prix:1500, Description:"", Categorie:"Dessert",    Image:"" },
-    { ProductID:"6", Nom:"Lasagne et wings",Prix:1500, Description:"", Categorie:"Nourriture",    Image:"" }
+    { ProductID:"1", Nom:"Cornet (Pack de 6)", Prix:1250, Description:"", Categorie:"Nourriture" },
+    { ProductID:"2", Nom:"Gratiné simple",      Prix:1000, Description:"", Categorie:"Nourriture" },
+    { ProductID:"3", Nom:"Gratiné wings",       Prix:1000, Description:"", Categorie:"Nourriture" },
+    { ProductID:"4", Nom:"Wings simple",        Prix:750,  Description:"", Categorie:"Nourriture" },
+    { ProductID:"5", Nom:"Cupcake (Pack de 6)", Prix:1500, Description:"", Categorie:"Dessert" },
+    { ProductID:"6", Nom:"Lasagne et wings",    Prix:1500, Description:"", Categorie:"Nourriture" }
   ];
 
   /*********************
@@ -475,12 +440,14 @@
   const $ = (id)=>document.getElementById(id);
   const CART_KEY = "bes_cart_v1";
 
-  // ✅ Format demandé: 1,250.00 HTG
-  function money(x){
-    const n = Number(x||0);
-    return n.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }) + " HTG";
-  }
   function norm(s){ return String(s||"").toLowerCase().trim(); }
+
+  // ✅ format: 1,250.00 HTG
+  function moneyHTG(x){
+    const n = Number(x||0);
+    const s = n.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 });
+    return s + " HTG";
+  }
 
   function showErr(t){
     const e=$("err");
@@ -505,33 +472,11 @@
     t.textContent="";
   }
 
-  // JSONP API
-  function api(action, params = {}) {
-    return new Promise((resolve, reject) => {
-      const cb = "cb_" + Math.random().toString(16).slice(2);
-      const q = new URLSearchParams({ action, callback: cb, ...params }).toString();
-      const url = API_URL + "?" + q;
-
-      const s = document.createElement("script");
-      s.src = url;
-      s.async = true;
-
-      window[cb] = (data) => {
-        try { resolve(data); }
-        finally {
-          delete window[cb];
-          s.remove();
-        }
-      };
-
-      s.onerror = () => {
-        delete window[cb];
-        s.remove();
-        reject(new Error("API error / network"));
-      };
-
-      document.head.appendChild(s);
-    });
+  function setBusy(isBusy){
+    const card = $("cartCard");
+    if(isBusy) card.classList.add("dim");
+    else card.classList.remove("dim");
+    $("checkoutBtn").disabled = !!isBusy;
   }
 
   function getGuestId(){
@@ -543,81 +488,16 @@
     return id;
   }
 
-  function safeImgUrl(u){
-    const url = String(u||"").trim();
-    if(!url) return "";
-    if(/^https?:\/\//i.test(url)) return url;
-    if(url.startsWith("./") || url.startsWith("assets/")) return url;
-    return "";
-  }
-
   function syncAddressVisibility(){
     const t = norm($("typeCommande").value);
     const isLiv = (t === "livraison");
     $("addrWrap").style.display = isLiv ? "block" : "none";
     if(!isLiv) $("adresse").value = "";
-  }
-
-  /*********************
-   * ✅ PAYMENT HELPERS
-   *********************/
-  function getPaymentMethod(){
-    const el = document.querySelector('input[name="paymentMethod"]:checked');
-    return el ? el.value : "";
-  }
-
-  function fileToBase64(file){
-    return new Promise((resolve, reject)=>{
-      const r = new FileReader();
-      r.onload = ()=> resolve(r.result);
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
-  }
-
-  function setupPaymentUI(){
-    const inp = $("paymentProof");
-    const img = $("proofPreview");
-
-    inp.addEventListener("change", ()=>{
-      clearToast();
-      hideErr();
-
-      if(inp.files && inp.files[0]){
-        const f = inp.files[0];
-
-        // Limite taille 6MB (optionnel)
-        const maxMB = 6;
-        if(f.size > maxMB * 1024 * 1024){
-          showErr("Image trop grande. Max " + maxMB + "MB.");
-          inp.value = "";
-          img.style.display = "none";
-          img.src = "";
-          return;
-        }
-
-        const url = URL.createObjectURL(f);
-        img.src = url;
-        img.style.display = "block";
-      }else{
-        img.style.display = "none";
-        img.src = "";
-      }
-    });
-  }
-
-  function resetPaymentUI(){
-    document.querySelectorAll('input[name="paymentMethod"]').forEach(r=> r.checked = false);
-    const inp = $("paymentProof");
-    const img = $("proofPreview");
-    inp.value = "";
-    img.style.display = "none";
-    img.src = "";
+    validateCheckoutBtn();
   }
 
   /*********************
    * LOCAL CART
-   * structure: { [ProductID]: qty }
    *********************/
   function loadCart(){
     try{
@@ -660,11 +540,12 @@
   }
 
   /*********************
-   * PRODUCTS (STATIC)
+   * PRODUCTS UI
    *********************/
   const state = {
     guestId: null,
-    products: STATIC_PRODUCTS
+    products: STATIC_PRODUCTS,
+    paymentProofBase64: ""
   };
 
   function loadProductsUI(){
@@ -691,60 +572,43 @@
 
     const box = $("products");
     if(list.length===0){
-      box.innerHTML = `<div class="loading">Aucun produit trouvé.</div>`;
+      box.innerHTML = `<div class="muted" style="padding:14px">Aucun produit trouvé.</div>`;
       return;
     }
 
-    box.innerHTML = list.map(p=>{
-      const img = safeImgUrl(p.Image);
-      const thumb = img
-        ? `<img src="${img}" alt="${(p.Nom||"").replace(/"/g,"")}"
-              onerror="this.remove(); this.parentNode.textContent='BES';">`
-        : `BES`;
-
-      const badgeClass = (p.Categorie === "Dessert") ? "badge pink" : "badge green";
-
-      return `
-        <div class="prod">
-          <div class="prodTop">
-            <div class="thumb">${thumb}</div>
-            <div style="flex:1;min-width:0">
-              <div class="row" style="align-items:flex-start">
-                <div style="min-width:0">
-                  <div class="title">${p.Nom||""}</div>
-                  <div class="desc">${p.Description||""}</div>
-                </div>
-                <div class="price">${money(p.Prix)}</div>
-              </div>
-              <div class="badges">
-                <span class="${badgeClass}">${p.Categorie||""}</span>
-              </div>
-            </div>
+    box.innerHTML = list.map(p=>`
+      <div class="prod">
+        <div class="row" style="align-items:flex-start">
+          <div style="min-width:0">
+            <div class="title">${p.Nom||""}</div>
+            <div class="desc">${p.Description||""}</div>
           </div>
-
-          <div style="margin-top:10px">
-            <button class="btn btnAdd" type="button"
-              onclick="addToCart('${String(p.ProductID).replace(/'/g,"")}')">
-              Ajouter au panier
-            </button>
-          </div>
+          <div class="price">${moneyHTG(p.Prix)}</div>
         </div>
-      `;
-    }).join("");
+
+        <div style="margin-top:10px">
+          <button class="btn btnAdd" type="button"
+            onclick="addToCart('${String(p.ProductID).replace(/'/g,"")}')">
+            Ajouter au panier
+          </button>
+        </div>
+      </div>
+    `).join("");
   }
 
   /*********************
-   * CART UI (LOCAL)
+   * CART UI
    *********************/
   function renderCart(){
     const cart = loadCart();
     const items = cartToItems(cart);
     const total = cartTotal(cart);
 
-    $("total").textContent = money(total);
+    $("total").textContent = moneyHTG(total);
 
     if(items.length === 0){
       $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+      validateCheckoutBtn();
       return;
     }
 
@@ -754,7 +618,7 @@
         <div class="cartItem">
           <div style="flex:1;min-width:0">
             <div class="name">${it.Nom||""}</div>
-            <div class="sub">${money(it.Prix)} × ${Number(it.Quantite||0)} = <b>${money(sub)}</b></div>
+            <div class="sub">${moneyHTG(it.Prix)} × ${Number(it.Quantite||0)} = <b>${moneyHTG(sub)}</b></div>
           </div>
 
           <div class="miniBtns">
@@ -766,11 +630,12 @@
         <div class="hr"></div>
       `;
     }).join("");
+
+    validateCheckoutBtn();
   }
 
   window.addToCart = function(productId){
-    hideErr();
-    clearToast();
+    hideErr(); clearToast();
 
     const cart = loadCart();
     const pid = String(productId);
@@ -783,25 +648,21 @@
   }
 
   window.qty = function(productId, q){
-    hideErr();
-    clearToast();
+    hideErr(); clearToast();
 
     const cart = loadCart();
     const pid = String(productId);
     const next = Number(q||0);
 
-    if(next <= 0){
-      delete cart[pid];
-    }else{
-      cart[pid] = next;
-    }
+    if(next <= 0) delete cart[pid];
+    else cart[pid] = next;
+
     saveCart(cart);
     renderCart();
   }
 
   window.rm = function(productId){
-    hideErr();
-    clearToast();
+    hideErr(); clearToast();
 
     const cart = loadCart();
     delete cart[String(productId)];
@@ -809,20 +670,91 @@
     renderCart();
   }
 
-  function setBusy(isBusy){
-    const card = $("cartCard");
-    if(isBusy) card.classList.add("dim");
-    else card.classList.remove("dim");
-    $("checkoutBtn").disabled = !!isBusy;
+  /*********************
+   * PAIEMENT UI + VALIDATION
+   *********************/
+  function getSelectedPaymentMethod(){
+    const el = document.querySelector('input[name="paymentMethod"]:checked');
+    return el ? String(el.value) : "";
+  }
+
+  function validateCheckoutBtn(){
+    const cart = loadCart();
+    const items = cartToItems(cart);
+    const total = cartTotal(cart);
+
+    const nameOk = !!$("clientNom").value.trim();
+    const phoneOk = !!$("telephone").value.trim();
+
+    const isLiv = (norm($("typeCommande").value) === "livraison");
+    const addrOk = !isLiv || !!$("adresse").value.trim();
+
+    const payMethodOk = !!getSelectedPaymentMethod();
+    const proofOk = !!state.paymentProofBase64;
+
+    const cartOk = items.length > 0 && total > 0;
+
+    $("checkoutBtn").disabled = !(cartOk && nameOk && phoneOk && addrOk && payMethodOk && proofOk);
+  }
+
+  function bindPaymentEvents(){
+    document.querySelectorAll('input[name="paymentMethod"]').forEach(r=>{
+      r.addEventListener("change", validateCheckoutBtn);
+    });
+
+    $("clientNom").addEventListener("input", validateCheckoutBtn);
+    $("telephone").addEventListener("input", validateCheckoutBtn);
+    $("adresse").addEventListener("input", validateCheckoutBtn);
+
+    $("paymentProof").addEventListener("change", async ()=>{
+      hideErr(); clearToast();
+      state.paymentProofBase64 = "";
+
+      const f = $("paymentProof").files && $("paymentProof").files[0];
+      if(!f){ $("proofPreview").style.display="none"; validateCheckoutBtn(); return; }
+
+      // max 3MB pour éviter timeout Apps Script
+      if (f.size > 3 * 1024 * 1024) {
+        showErr("Image trop grande. Maximum 3MB.");
+        $("paymentProof").value = "";
+        $("proofPreview").style.display="none";
+        validateCheckoutBtn();
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(){
+        const dataUrl = String(reader.result || "");
+        state.paymentProofBase64 = dataUrl;
+
+        $("proofImg").src = dataUrl;
+        $("proofPreview").style.display = "block";
+        validateCheckoutBtn();
+      };
+      reader.onerror = function(){
+        showErr("Impossible de lire l'image.");
+        $("paymentProof").value = "";
+        $("proofPreview").style.display="none";
+        validateCheckoutBtn();
+      };
+      reader.readAsDataURL(f);
+    });
   }
 
   /*********************
-   * CHECKOUT (ONE CALL)
+   * SUBMIT ORDER (google.script.run)
    *********************/
+  function gsCall(fn, payload){
+    return new Promise((resolve, reject)=>{
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)[fn](payload);
+    });
+  }
+
   async function checkout(){
     try{
-      hideErr();
-      clearToast();
+      hideErr(); clearToast();
       setBusy(true);
 
       const cart = loadCart();
@@ -834,21 +766,15 @@
         return;
       }
 
-      // ✅ paiement obligatoire
-      const method = getPaymentMethod();
-      const proofInput = $("paymentProof");
-      const proofFile = (proofInput.files && proofInput.files[0]) ? proofInput.files[0] : null;
-
-      if(!method){
+      const paymentMethod = getSelectedPaymentMethod();
+      if(!paymentMethod){
         showErr("Choisis une méthode de paiement (MonCash ou NatCash).");
         return;
       }
-      if(!proofFile){
+      if(!state.paymentProofBase64){
         showErr("Ajoute une preuve de paiement (image).");
         return;
       }
-
-      const proofBase64 = await fileToBase64(proofFile);
 
       const payload = {
         guestId: state.guestId,
@@ -858,10 +784,8 @@
         adresse: $("adresse").value.trim(),
         noteCommande: $("noteCommande").value.trim(),
         items: items.map(it => ({ ProductID: it.ProductID, Quantite: it.Quantite })),
-
-        // ✅ champs paiement envoyés à submitOrder
-        paymentMethod: method,      // "Moncash" ou "Natcash"
-        paymentProof: proofBase64   // "data:image/...;base64,...."
+        paymentMethod: paymentMethod,
+        paymentProof: state.paymentProofBase64
       };
 
       if(!payload.clientNom || !payload.telephone){
@@ -873,30 +797,31 @@
         return;
       }
 
-      // ✅ un seul appel Apps Script
-      const r = await api("submitOrder", { payload: JSON.stringify(payload) });
+      // ✅ Appel serveur interne: plus de JSONP / API_URL
+      const r = await gsCall("submitOrder", payload);
 
       if(!r || !r.ok) throw new Error((r && r.error) ? r.error : "Erreur submitOrder");
 
-      toast(`Commande envoyée ✅ Total: ${money(r.total)}`);
+      toast(`Commande envoyée ✅ Total: ${moneyHTG(r.total)}`);
 
-      // Reset local cart
+      // reset
       clearCart();
       renderCart();
-
-      // reset champs
       $("noteCommande").value = "";
       $("adresse").value = "";
       $("typeCommande").value = "Sur place";
+      $("paymentProof").value = "";
+      state.paymentProofBase64 = "";
+      $("proofPreview").style.display = "none";
+      document.querySelectorAll('input[name="paymentMethod"]').forEach(x=> x.checked=false);
       syncAddressVisibility();
-
-      // ✅ reset paiement
-      resetPaymentUI();
+      validateCheckoutBtn();
 
     }catch(e){
       showErr(e.message || e);
     }finally{
       setBusy(false);
+      validateCheckoutBtn();
     }
   }
 
@@ -911,12 +836,10 @@
     $("typeCommande").onchange = syncAddressVisibility;
     $("resetCartBtn").onclick = ()=>{ clearCart(); renderCart(); toast("Panier vidé ✅"); setTimeout(clearToast, 900); };
 
+    bindPaymentEvents();
     syncAddressVisibility();
     loadProductsUI();
     renderCart();
-
-    // ✅ init paiement
-    setupPaymentUI();
   })();
 </script>
 
