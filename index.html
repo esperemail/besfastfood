@@ -214,7 +214,7 @@
       color:#fff; border:none;
     }
 
-    /* ✅ IMPORTANT: rendre le disabled visible */
+    /* ✅ rendre le disabled visible */
     button:disabled{
       opacity:.45;
       cursor:not-allowed;
@@ -323,7 +323,7 @@
       </div>
     </div>
 
-    <!-- ✅ Tag visible pour vérifier que GitHub Pages a bien pris la nouvelle version -->
+    <!-- ✅ tag pour vérifier la version -->
     <div class="pill">Commande en ligne • WhatsApp v2</div>
   </div>
 </header>
@@ -414,7 +414,7 @@
           <textarea id="noteCommande" placeholder="Ex: sans piment..."></textarea>
         </div>
 
-        <!-- ✅ Paiement obligatoire -->
+        <!-- Paiement obligatoire -->
         <div class="field">
           <div class="label">Paiement <span class="req">Obligatoire</span></div>
           <div class="payBox">
@@ -436,7 +436,7 @@
           </div>
         </div>
 
-        <!-- ✅ preuve image obligatoire (upload seulement) -->
+        <!-- preuve image obligatoire (upload seulement) -->
         <div class="field">
           <div class="label">Preuve de paiement (image) <span class="req">Obligatoire</span></div>
           <input id="paymentProof" type="file" accept="image/*">
@@ -459,7 +459,7 @@
    * CONFIG (WhatsApp uniquement)
    *********************/
   // ✅ IMPORTANT: wa.me veut seulement les chiffres (pas de +)
-  const WHATSAPP_NUMBER = "+50940430164";
+  const WHATSAPP_NUMBER = "50940430164";
 
   /*********************
    * PRODUITS (STATIC)
@@ -569,10 +569,7 @@
   /*********************
    * PRODUCTS UI
    *********************/
-  const state = {
-    guestId: null,
-    products: STATIC_PRODUCTS
-  };
+  const state = { guestId: null, products: STATIC_PRODUCTS };
 
   function getGuestId(){
     let id = localStorage.getItem("guestId");
@@ -761,7 +758,7 @@
   }
 
   /*********************
-   * WhatsApp (message seulement - pas d'image attachée par lien)
+   * WhatsApp (message seulement)
    *********************/
   function openWhatsApp(message){
     const url = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(message);
@@ -844,14 +841,13 @@
 
       setBusy(true);
 
-      // ✅ Ouvre WhatsApp avec le message (sans image attachée)
       const waMsg = buildWhatsAppMessage(payload, itemsFull, total);
       openWhatsApp(waMsg);
 
       toast("WhatsApp ouvert ✅ Envoie maintenant l'image (preuve) dans ce chat.");
       setTimeout(clearToast, 4000);
 
-      // ✅ Option: vider automatiquement après ouverture WhatsApp
+      // ✅ option : vider automatiquement
       clearCart();
       renderCart();
       $("noteCommande").value = "";
