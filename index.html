@@ -266,7 +266,6 @@
       font-weight:1000;
     }
 
-    .loading{ padding:14px; color:var(--muted); font-weight:900; }
     .dim{ opacity:.65; pointer-events:none; filter:saturate(.9); }
 
     /* ✅ bloc paiement */
@@ -344,7 +343,7 @@
       </div>
 
       <div id="products" class="products">
-        <div class="loading">Chargement du menu...</div>
+        <div class="muted" style="padding:14px">Chargement du menu...</div>
       </div>
     </div>
 
@@ -428,7 +427,6 @@
         <!-- ✅ preuve image obligatoire (upload seulement) -->
         <div class="field">
           <div class="label">Preuve de paiement (image) <span class="req">Obligatoire</span></div>
-          <!-- ✅ capture="environment" retiré => pas d'obligation photo -->
           <input id="paymentProof" type="file" accept="image/*">
           <div class="fileHint">Sélectionne une image (capture / screenshot). Ensuite on t’envoie sur WhatsApp pour l’envoyer.</div>
           <div class="proofOk" id="proofOk">✅ Image sélectionnée</div>
@@ -446,10 +444,10 @@
 
 <script>
   /*********************
-   * CONFIG
+   * CONFIG (WhatsApp uniquement)
    *********************/
-  const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec"; // ex: https://script.google.com/macros/s/XXXX/exec
-  const WHATSAPP_NUMBER = "+50940430164"; // numéro BES (sans +)
+  // ✅ IMPORTANT: wa.me veut seulement les chiffres (pas de +)
+  const WHATSAPP_NUMBER = "50940430164";
 
   /*********************
    * PRODUITS (STATIC)
@@ -471,7 +469,6 @@
 
   function norm(s){ return String(s||"").toLowerCase().trim(); }
 
-  // ✅ Format: 1,250.00 HTG
   function fmtHTG(n){
     const x = Number(n||0);
     return x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " HTG";
@@ -512,50 +509,6 @@
     const isLiv = (t === "livraison");
     $("addrWrap").style.display = isLiv ? "block" : "none";
     if(!isLiv) $("adresse").value = "";
-  }
-
-  /*********************
-   * JSONP API (GitHub -> Apps Script)
-   *********************/
-  function apiJsonp(action, params = {}) {
-    return new Promise((resolve, reject) => {
-      const cb = "cb_" + Math.random().toString(16).slice(2);
-      const q = new URLSearchParams({ action, callback: cb, ...params }).toString();
-      const url = API_URL + "?" + q;
-
-      const s = document.createElement("script");
-      s.src = url;
-      s.async = true;
-
-      let done = false;
-      const timer = setTimeout(()=>{
-        if(done) return;
-        done = true;
-        try { delete window[cb]; } catch(e){}
-        try { s.remove(); } catch(e){}
-        reject(new Error("Timeout API"));
-      }, 15000);
-
-      window[cb] = (data) => {
-        if(done) return;
-        done = true;
-        clearTimeout(timer);
-        try { delete window[cb]; } catch(e){}
-        try { s.remove(); } catch(e){}
-        resolve(data);
-      };
-
-      s.onerror = () => {
-        if(done) return;
-        done = true;
-        clearTimeout(timer);
-        try { delete window[cb]; } catch(e){}
-        try { s.remove(); } catch(e){}
-        reject(new Error("API error / network"));
-      };
-
-      document.head.appendChild(s);
-    });
   }
 
   /*********************
@@ -642,7 +595,7 @@
 
     const box = $("products");
     if(list.length===0){
-      box.innerHTML = `<div class="loading">Aucun produit trouvé.</div>`;
+      box.innerHTML = `<div class="muted" style="padding:14px">Aucun produit trouvé.</div>`;
       return;
     }
 
@@ -696,6 +649,7 @@
 
     if(items.length === 0){
       $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+      validateCheckoutButton();
       return;
     }
 
@@ -722,9 +676,7 @@
   }
 
   window.addToCart = function(productId){
-    hideErr();
-    clearToast();
-
+    hideErr(); clearToast();
     const cart = loadCart();
     const pid = String(productId);
     cart[pid] = (Number(cart[pid]||0) + 1);
@@ -736,26 +688,20 @@
   }
 
   window.qty = function(productId, q){
-    hideErr();
-    clearToast();
-
+    hideErr(); clearToast();
     const cart = loadCart();
     const pid = String(productId);
     const next = Number(q||0);
 
-    if(next <= 0){
-      delete cart[pid];
-    }else{
-      cart[pid] = next;
-    }
+    if(next <= 0) delete cart[pid];
+    else cart[pid] = next;
+
     saveCart(cart);
     renderCart();
   }
 
   window.rm = function(productId){
-    hideErr();
-    clearToast();
-
+    hideErr(); clearToast();
     const cart = loadCart();
     delete cart[String(productId)];
     saveCart(cart);
@@ -803,9 +749,10 @@
   }
 
   /*********************
-   * WhatsApp message (sans attacher image)
+   * WhatsApp (message seulement)
    *********************/
   function openWhatsApp(message){
+    // wa.me accepte uniquement les chiffres
     const url = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(message);
     window.open(url, "_blank");
   }
@@ -839,18 +786,18 @@
   }
 
   /*********************
-   * CHECKOUT (WhatsApp + Sheets sans image)
+   * CHECKOUT (WhatsApp uniquement)
    *********************/
-  async function checkout(){
+  function checkout(){
     try{
-      hideErr();
-      clearToast();
+      hideErr(); clearToast();
 
       const cart = loadCart();
-      const items = cartToItems(cart).map(it => ({ ProductID: it.ProductID, Quantite: it.Quantite }));
+      const itemsFull = cartToItems(cart);
+      const itemsLite = itemsFull.map(it => ({ ProductID: it.ProductID, Quantite: it.Quantite }));
       const total = cartTotal(cart);
 
-      if(items.length === 0 || total <= 0){
+      if(itemsFull.length === 0 || total <= 0){
         showErr("Panier vide.");
         return;
       }
@@ -874,7 +821,7 @@
         adresse: $("adresse").value.trim(),
         noteCommande: $("noteCommande").value.trim(),
         paymentMethod: paymentMethod,
-        items: items
+        items: itemsLite
       };
 
       if(!payload.clientNom || !payload.telephone){
@@ -886,38 +833,28 @@
         return;
       }
 
-      // ✅ 1) Ouvrir WhatsApp (pas d'attachment possible par lien)
-      const waMsg = buildWhatsAppMessage(payload, items, total);
+      setBusy(true);
+
+      // ✅ Ouvre WhatsApp avec le message
+      const waMsg = buildWhatsAppMessage(payload, payload.items, total);
       openWhatsApp(waMsg);
 
-      // ✅ 2) Envoyer au serveur (sans image)
-      setBusy(true);
-      let serverOk = false;
-      try{
-        const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
-        if(r && r.ok){
-          serverOk = true;
-          toast("Commande enregistrée ✅ ID: " + r.orderId);
-        }else{
-          toast("WhatsApp ouvert ✅ (Serveur: échec)");
-        }
-      }catch(_e){
-        toast("WhatsApp ouvert ✅ (Erreur serveur)");
-      }
+      // ✅ Ici : pas de serveur, donc pas d'erreur serveur.
+      toast("WhatsApp ouvert ✅ Envoie maintenant l'image (preuve) dans ce chat.");
+      setTimeout(clearToast, 4000);
 
-      // ✅ Si serveur OK, on vide le panier
-      if(serverOk){
-        clearCart();
-        renderCart();
-        $("noteCommande").value = "";
-        $("adresse").value = "";
-        $("typeCommande").value = "Sur place";
-        syncAddressVisibility();
-        // reset image + paiement
-        $("paymentProof").value = "";
-        document.querySelectorAll("input[name='pay']").forEach(x=> x.checked = false);
-        validateCheckoutButton();
-      }
+      // ✅ Option : vider automatiquement le panier
+      clearCart();
+      renderCart();
+      $("noteCommande").value = "";
+      $("adresse").value = "";
+      $("typeCommande").value = "Sur place";
+      syncAddressVisibility();
+
+      // reset image + paiement
+      $("paymentProof").value = "";
+      document.querySelectorAll("input[name='pay']").forEach(x=> x.checked = false);
+      validateCheckoutButton();
 
     }catch(e){
       showErr(e.message || e);
