@@ -7,19 +7,31 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 10px; background:#f6f6f6; }
     h1 { margin: 0 0 10px; }
-    nav button { margin: 4px; padding: 8px 12px; }
-    section { display:none; background:#fff; padding:10px; border-radius:6px; }
+    nav button { margin: 4px; padding: 10px 14px; border-radius:8px; border:1px solid #bbb; cursor:pointer; }
+    nav button.active { background:#111; color:#fff; border-color:#111; }
+    section { display:none; background:#fff; padding:12px; border-radius:10px; box-shadow:0 1px 6px rgba(0,0,0,.06); }
     section.active { display:block; }
-    table { width:100%; border-collapse: collapse; margin-top:8px; }
-    th, td { border:1px solid #ccc; padding:6px; font-size:14px; }
-    th { background:#eee; }
+    .bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+    .pill { background:#eee; padding:6px 10px; border-radius:999px; font-size:13px; }
+    .ok { color: #0a7a0a; }
+    .err { color: #b00020; }
+    table { width:100%; border-collapse: collapse; margin-top:10px; background:#fff; }
+    th, td { border:1px solid #ddd; padding:8px; font-size:14px; vertical-align:top; }
+    th { background:#f0f0f0; text-align:left; }
     tr.new { background:#fff3cd; }
-    .ok { color:green; }
-    .err { color:red; }
-    input, select, textarea { padding:6px; width:100%; }
-    .row { display:flex; gap:8px; }
-    .row > div { flex:1; }
-    .actions button { margin-right:4px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row > div { flex: 1; min-width: 160px; }
+    input, select, textarea { padding:8px; width:100%; border:1px solid #ccc; border-radius:8px; }
+    textarea { min-height: 70px; }
+    button { padding:8px 12px; border:1px solid #bbb; border-radius:8px; cursor:pointer; background:#fff; }
+    button.primary { background:#111; color:#fff; border-color:#111; }
+    button.small { padding:6px 10px; font-size:13px; }
+    .muted { color:#666; font-size:13px; }
+    .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:10px; }
+    .card { background:#fff; border:1px solid #e6e6e6; border-radius:12px; padding:12px; }
+    .card h3 { margin:0 0 8px; font-size:15px; }
+    .big { font-size:24px; font-weight:700; }
+    .toast { position:fixed; right:12px; bottom:12px; background:#111; color:#fff; padding:10px 12px; border-radius:10px; display:none; }
   </style>
 </head>
 
@@ -28,14 +40,34 @@
 <h1>🍔 BES Fast Food – Admin</h1>
 
 <nav>
-  <button onclick="show('orders')">📦 Commandes</button>
-  <button onclick="show('products')">🍟 Produits</button>
+  <button id="tabOrders" class="active" onclick="show('orders')">📦 Commandes</button>
+  <button id="tabProducts" onclick="show('products')">🍟 Produits</button>
+  <button id="tabDash" onclick="show('dash')">📊 Dashboard</button>
 </nav>
+
+<div class="bar">
+  <span class="pill">Auto-refresh: <b id="autoState">ON</b></span>
+  <button class="small" onclick="toggleAuto()">⏱️ Toggle</button>
+  <button class="small" onclick="testBeep()">🔔 Test son</button>
+  <span class="muted">Astuce: garde l’URL admin avec <b>#k=TA_CLE</b></span>
+</div>
 
 <!-- ================= COMMANDES ================= -->
 <section id="orders" class="active">
   <h2>📦 Commandes</h2>
-  <button onclick="loadOrders()">🔄 Rafraîchir</button>
+
+  <div class="bar">
+    <button class="primary" onclick="loadOrders(true)">🔄 Rafraîchir</button>
+    <select id="statusFilter" onchange="loadOrders(true)" style="max-width:220px">
+      <option value="">Tous statuts</option>
+      <option value="Reçue">Reçue</option>
+      <option value="Prête">Prête</option>
+      <option value="Terminée">Terminée</option>
+      <option value="Annulée">Annulée</option>
+    </select>
+    <span class="pill">Dernière sync: <b id="lastSync">-</b></span>
+  </div>
+
   <div id="ordersMsg"></div>
   <table id="ordersTable"></table>
 </section>
@@ -44,39 +76,125 @@
 <section id="products">
   <h2>🍟 Produits</h2>
 
-  <h3>➕ Ajouter / Modifier</h3>
-  <div class="row">
-    <div><input id="pId" placeholder="ProductID" /></div>
-    <div><input id="pName" placeholder="Nom" /></div>
-    <div><input id="pCat" placeholder="Catégorie" /></div>
-    <div><input id="pPrice" type="number" placeholder="Prix" /></div>
-    <div><input id="pStock" type="number" placeholder="Stock" /></div>
+  <div class="bar">
+    <button class="primary" onclick="loadProducts()">🔄 Charger Produits</button>
+    <button onclick="clearForm()">➕ Nouveau</button>
   </div>
-  <button onclick="saveProduct()">💾 Enregistrer</button>
-  <div id="prodMsg"></div>
 
-  <h3>📋 Liste</h3>
+  <h3>➕ Ajouter / Modifier (dropdown éditable)</h3>
+  <div class="row">
+    <div>
+      <label class="muted">ProductID</label>
+      <input id="pId" placeholder="Ex: P001" list="prodIdList" />
+      <datalist id="prodIdList"></datalist>
+    </div>
+    <div>
+      <label class="muted">Nom</label>
+      <input id="pName" placeholder="Nom du produit" />
+    </div>
+    <div>
+      <label class="muted">Catégorie (tu peux taper une nouvelle)</label>
+      <input id="pCat" placeholder="Ex: Burgers" list="catList" />
+      <datalist id="catList"></datalist>
+    </div>
+    <div>
+      <label class="muted">Prix</label>
+      <input id="pPrice" type="number" placeholder="Prix" />
+    </div>
+    <div>
+      <label class="muted">Stock</label>
+      <input id="pStock" type="number" placeholder="Stock" />
+    </div>
+  </div>
+
+  <div class="bar">
+    <button class="primary" onclick="saveProduct()">💾 Enregistrer</button>
+    <button onclick="deactivateProduct()">🚫 Désactiver</button>
+    <span id="prodMsg"></span>
+  </div>
+
+  <h3>📋 Liste (stock modifiable “lite”)</h3>
+  <div class="muted">Clique une ligne pour éditer. Modifie le stock directement puis “OK”.</div>
   <table id="productsTable"></table>
 </section>
 
+<!-- ================= DASHBOARD ================= -->
+<section id="dash">
+  <h2>📊 Dashboard (Aujourd’hui)</h2>
+  <div class="bar">
+    <button class="primary" onclick="loadOrders(true)">🔄 Mettre à jour</button>
+    <span class="muted">Basé sur les commandes reçues via Sheets.</span>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Commandes (jour)</h3>
+      <div class="big" id="dOrders">0</div>
+      <div class="muted" id="dOrdersSub">-</div>
+    </div>
+    <div class="card">
+      <h3>Total (jour)</h3>
+      <div class="big" id="dTotal">0</div>
+      <div class="muted">HTG</div>
+    </div>
+    <div class="card">
+      <h3>Produits vendus</h3>
+      <div class="big" id="dItems">0</div>
+      <div class="muted">quantité totale</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:14px">Top produits vendus (jour)</h3>
+  <table id="topTable"></table>
+</section>
+
+<div class="toast" id="toast"></div>
+
 <script>
 /************ CONFIG ************/
-const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0bWSPz-_a7RqsSGtOuKCK9Wru3_Dj6pRGZCE2NqMFhe8_/exec"; // <-- IMPORTANT
+const API_URL = "PASTE_TON_SCRIPT_URL_ICI"; // <-- remplace par https://script.google.com/macros/s/XXXX/exec
 let ADMIN_KEY = "";
+
+/************ STATE ************/
+let AUTO_ON = true;
+let AUTO_MS = 12000;
+let autoTimer = null;
+
+let lastOrderIds = new Set(JSON.parse(localStorage.getItem("bes_admin_last_ids") || "[]"));
+let lastOrdersCache = []; // pour dashboard + tickets
+let productsCache = [];
 
 /************ INIT ************/
 (function init(){
+  // clé depuis #k=
   const hash = location.hash || "";
   const m = hash.match(/k=([^&]+)/);
-  if (m) ADMIN_KEY = m[1];
-  if (!ADMIN_KEY) alert("Lien admin invalide (clé manquante)");
-  loadOrders();
+  if (m) ADMIN_KEY = decodeURIComponent(m[1] || "");
+  if (!ADMIN_KEY) alert("Lien admin invalide : ajoute #k=TA_CLE à l’URL");
+
+  startAuto();
+  loadOrders(true);
 })();
 
 /************ UI ************/
 function show(id){
   document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
+
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  if (id === "orders") tabOrders.classList.add("active");
+  if (id === "products") tabProducts.classList.add("active");
+  if (id === "dash") tabDash.classList.add("active");
+
+  if (id === "products") loadProducts();
+  if (id === "dash") renderDashboardFromCache();
+}
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(()=> t.style.display="none", 2500);
 }
 
 /************ JSONP ************/
@@ -91,7 +209,14 @@ function jsonp(action, params, cb){
   const s = document.createElement("script");
   s.src = API_URL + "?" + q;
 
+  const timeout = setTimeout(()=>{
+    try { delete window[callback]; } catch(e){}
+    try { s.remove(); } catch(e){}
+    cb({ ok:false, error:"Timeout API" });
+  }, 15000);
+
   window[callback] = function(res){
+    clearTimeout(timeout);
     delete window[callback];
     s.remove();
     cb(res);
@@ -100,54 +225,223 @@ function jsonp(action, params, cb){
   document.body.appendChild(s);
 }
 
-/************ COMMANDES ************/
-function loadOrders(){
-  jsonp("admin_listOrders", {}, res=>{
-    const el = document.getElementById("ordersTable");
-    if (!res.ok) return el.innerHTML = "<tr><td>"+res.error+"</td></tr>";
+/************ AUTO REFRESH ************/
+function startAuto(){
+  stopAuto();
+  if (!AUTO_ON) { autoState.textContent = "OFF"; return; }
+  autoState.textContent = "ON";
+  autoTimer = setInterval(()=> loadOrders(false), AUTO_MS);
+}
 
-    let html = "<tr><th>Date</th><th>Client</th><th>Téléphone</th><th>Total</th><th>Statut</th><th>Actions</th></tr>";
-    res.orders.forEach(o=>{
-      html += `<tr class="${o.Statut==='Reçue'?'new':''}">
-        <td>${o.DateHeure || ""}</td>
-        <td>${o.ClientNom || ""}</td>
-        <td>${o.Telephone || ""}</td>
-        <td>${o.Total || ""}</td>
-        <td>${o.Statut || ""}</td>
-        <td class="actions">
-          <button onclick="setStatus('${o.OrderID}','Prête')">Prête</button>
-          <button onclick="setStatus('${o.OrderID}','Terminée')">Terminée</button>
+function stopAuto(){
+  if (autoTimer) clearInterval(autoTimer);
+  autoTimer = null;
+}
+
+function toggleAuto(){
+  AUTO_ON = !AUTO_ON;
+  startAuto();
+  toast("Auto-refresh: " + (AUTO_ON ? "ON" : "OFF"));
+}
+
+/************ SOUND (beep) ************/
+function beep(){
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = "sine";
+    o.frequency.value = 880;
+    g.gain.value = 0.06;
+    o.start();
+    setTimeout(()=>{ o.stop(); ctx.close(); }, 160);
+  } catch(e){
+    // silencieux si navigateur bloque audio
+  }
+}
+function testBeep(){ beep(); toast("Test son 🔔"); }
+
+/************ COMMANDES ************/
+function loadOrders(manual){
+  const status = document.getElementById("statusFilter").value || "";
+  const params = {};
+  if (status) params.status = status;
+
+  jsonp("admin_listOrders", params, res=>{
+    lastSync.textContent = new Date().toLocaleTimeString();
+
+    const el = document.getElementById("ordersTable");
+    if (!res.ok) {
+      document.getElementById("ordersMsg").innerHTML = "<span class='err'>" + (res.error || res.message || "Erreur") + "</span>";
+      el.innerHTML = "<tr><td>" + (res.error || res.message || "Erreur") + "</td></tr>";
+      return;
+    }
+
+    document.getElementById("ordersMsg").innerHTML = "";
+
+    const orders = Array.isArray(res.orders) ? res.orders : [];
+    lastOrdersCache = orders;
+
+    // détecter nouvelles commandes (par OrderID)
+    const newIds = [];
+    for (const o of orders) {
+      const id = String(o.OrderID || o.orderId || "").trim();
+      if (id && !lastOrderIds.has(id) && String(o.Statut||"") === "Reçue") newIds.push(id);
+    }
+
+    // si nouvelles: son + toast
+    if (newIds.length > 0) {
+      beep();
+      toast("Nouvelle commande (" + newIds.length + ") ✅");
+    }
+
+    // mettre à jour set global (tous ids affichés)
+    const seenNow = new Set([...lastOrderIds]);
+    orders.forEach(o=>{
+      const id = String(o.OrderID || o.orderId || "").trim();
+      if (id) seenNow.add(id);
+    });
+    lastOrderIds = seenNow;
+    localStorage.setItem("bes_admin_last_ids", JSON.stringify(Array.from(lastOrderIds)));
+
+    // render table
+    let html = "<tr><th>Date</th><th>Client</th><th>Téléphone</th><th>Type</th><th>Total</th><th>Statut</th><th>Résumé</th><th>Actions</th></tr>";
+    orders.forEach(o=>{
+      const oid = String(o.OrderID || "").trim();
+      const stat = String(o.Statut || "");
+      const rowClass = (stat === "Reçue") ? "new" : "";
+      const resume = o.ResumeItems || (o.items ? o.items.map(it=> (it.Nom||"")+"("+ (it.Quantite||0) +")").join(", ") : "");
+      html += `<tr class="${rowClass}">
+        <td>${fmtDate(o.DateHeure)}</td>
+        <td><b>${esc(o.ClientNom || "")}</b><br><span class="muted">${esc(o.Adresse || "")}</span></td>
+        <td>${esc(o.Telephone || "")}</td>
+        <td>${esc(o.TypeCommande || "")}</td>
+        <td>${esc(o.Total || "")}</td>
+        <td>${esc(stat)}</td>
+        <td>${esc(resume || "")}</td>
+        <td>
+          <button class="small" onclick="setStatus('${oid}','Prête')">Prête</button>
+          <button class="small" onclick="setStatus('${oid}','Terminée')">Terminée</button>
+          <button class="small" onclick="setStatus('${oid}','Annulée')">Annuler</button>
+          <button class="small" onclick="printTicket('${oid}')">🖨 Ticket</button>
         </td>
       </tr>`;
     });
     el.innerHTML = html;
+
+    // dashboard auto
+    renderDashboardFromCache();
   });
 }
 
 function setStatus(orderId, status){
   jsonp("admin_setOrderStatus", { orderId, status }, res=>{
-    alert(res.ok ? "OK" : res.error);
-    loadOrders();
+    if (!res.ok) return toast("Erreur: " + (res.error || res.message || "status"));
+    toast("Statut → " + status);
+    loadOrders(true);
   });
+}
+
+/************ TICKET IMPRESSION ************/
+function printTicket(orderId){
+  const o = (lastOrdersCache || []).find(x => String(x.OrderID||"") === String(orderId));
+  if (!o) { toast("Commande introuvable"); return; }
+
+  const items = Array.isArray(o.items) ? o.items : [];
+  const w = window.open("", "_blank", "width=380,height=700");
+  if (!w) { alert("Popup bloquée. Autorise les popups pour imprimer."); return; }
+
+  const rows = items.map(it => `
+    <tr>
+      <td>${esc(it.Nom || "")}</td>
+      <td style="text-align:right">${esc(it.Quantite || 0)}</td>
+      <td style="text-align:right">${esc(it.SousTotal || "")}</td>
+    </tr>
+  `).join("");
+
+  w.document.write(`
+  <html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Ticket ${esc(orderId)}</title>
+    <style>
+      body{ font-family: Arial, sans-serif; margin:12px; }
+      h2{ margin:0 0 6px; }
+      .muted{ color:#666; font-size:12px; }
+      table{ width:100%; border-collapse:collapse; margin-top:8px; }
+      td,th{ border-bottom:1px dashed #ccc; padding:6px 0; font-size:13px; }
+      .tot{ font-size:16px; font-weight:700; margin-top:10px; }
+      .hr{ border-top:1px solid #000; margin:10px 0; }
+    </style>
+  </head>
+  <body>
+    <h2>BES Fast Food</h2>
+    <div class="muted">Ticket cuisine</div>
+    <div class="hr"></div>
+
+    <div><b>Commande:</b> ${esc(orderId)}</div>
+    <div><b>Date:</b> ${esc(fmtDate(o.DateHeure))}</div>
+    <div><b>Client:</b> ${esc(o.ClientNom || "")}</div>
+    <div><b>Tél:</b> ${esc(o.Telephone || "")}</div>
+    <div><b>Type:</b> ${esc(o.TypeCommande || "")}</div>
+    ${String(o.TypeCommande||"").toLowerCase()==="livraison" ? `<div><b>Adresse:</b> ${esc(o.Adresse||"")}</div>` : ""}
+    ${o.NoteCommande ? `<div><b>Note:</b> ${esc(o.NoteCommande)}</div>` : ""}
+
+    <div class="hr"></div>
+    <table>
+      <tr><th>Produit</th><th style="text-align:right">Qté</th><th style="text-align:right">Sous-total</th></tr>
+      ${rows || "<tr><td colspan='3'>Aucun item</td></tr>"}
+    </table>
+
+    <div class="tot">TOTAL: ${esc(o.Total || 0)} HTG</div>
+
+    <script>
+      window.onload = () => { window.print(); };
+    </script>
+  </body>
+  </html>
+  `);
+  w.document.close();
 }
 
 /************ PRODUITS ************/
 function loadProducts(){
   jsonp("admin_listProducts", {}, res=>{
     const el = document.getElementById("productsTable");
-    if (!res.ok) return el.innerHTML = "<tr><td>"+res.error+"</td></tr>";
+    if (!res.ok) { el.innerHTML = "<tr><td>"+(res.error||res.message||"Erreur")+"</td></tr>"; return; }
 
-    let html = "<tr><th>ID</th><th>Nom</th><th>Cat.</th><th>Prix</th><th>Stock</th></tr>";
-    res.products.forEach(p=>{
-      html += `<tr onclick='fillProduct(${JSON.stringify(p)})'>
-        <td>${p.ProductID}</td>
-        <td>${p.Nom}</td>
-        <td>${p.Categorie || ""}</td>
-        <td>${p.Prix}</td>
-        <td>${p.Stock}</td>
+    productsCache = Array.isArray(res.products) ? res.products : [];
+
+    // datalists
+    const catSet = new Set();
+    const pidList = [];
+    productsCache.forEach(p=>{
+      pidList.push(String(p.ProductID||""));
+      if (p.Categorie) catSet.add(String(p.Categorie));
+    });
+
+    document.getElementById("catList").innerHTML = Array.from(catSet).sort().map(c=>`<option value="${escAttr(c)}"></option>`).join("");
+    document.getElementById("prodIdList").innerHTML = pidList.map(id=>`<option value="${escAttr(id)}"></option>`).join("");
+
+    // table
+    let html = "<tr><th>ID</th><th>Nom</th><th>Cat.</th><th>Prix</th><th>Stock</th><th>Maj stock</th></tr>";
+    productsCache.forEach(p=>{
+      const pid = String(p.ProductID||"");
+      html += `<tr onclick='fillProduct(${JSON.stringify(p).replace(/</g,"\\u003c")})'>
+        <td><b>${esc(pid)}</b></td>
+        <td>${esc(p.Nom||"")}</td>
+        <td>${esc(p.Categorie||"")}</td>
+        <td>${esc(p.Prix||0)}</td>
+        <td>${esc(p.Stock||0)}</td>
+        <td>
+          <input style="max-width:120px" type="number" id="stk_${escAttr(pid)}" value="${escAttr(p.Stock||0)}" onclick="event.stopPropagation()"/>
+          <button class="small" onclick="event.stopPropagation(); quickStock('${pid}')">OK</button>
+        </td>
       </tr>`;
     });
     el.innerHTML = html;
+    prodMsg.innerHTML = "<span class='ok'>Produits chargés ✅</span>";
   });
 }
 
@@ -159,23 +453,116 @@ function fillProduct(p){
   pStock.value = p.Stock || 0;
 }
 
+function clearForm(){
+  pId.value = "";
+  pName.value = "";
+  pCat.value = "";
+  pPrice.value = "";
+  pStock.value = "";
+  prodMsg.innerHTML = "";
+}
+
 function saveProduct(){
   const product = {
-    ProductID: pId.value,
-    Nom: pName.value,
-    Categorie: pCat.value,
-    Prix: Number(pPrice.value),
-    Stock: Number(pStock.value)
+    ProductID: pId.value.trim(),
+    Nom: pName.value.trim(),
+    Categorie: pCat.value.trim(),
+    Prix: Number(pPrice.value || 0),
+    Stock: Number(pStock.value || 0)
   };
+  if (!product.ProductID || !product.Nom) {
+    prodMsg.innerHTML = "<span class='err'>ProductID et Nom obligatoires</span>";
+    return;
+  }
   jsonp("admin_upsertProduct", { product: JSON.stringify(product) }, res=>{
-    prodMsg.innerHTML = res.ok ? "<span class='ok'>Enregistré</span>" : "<span class='err'>"+res.error+"</span>";
+    prodMsg.innerHTML = res.ok ? "<span class='ok'>Enregistré ✅</span>" : "<span class='err'>"+(res.error||res.message||"Erreur")+"</span>";
     loadProducts();
   });
 }
 
-/************ AUTO ************/
-document.querySelector("button[onclick=\"show('products')\"]")
-  .addEventListener("click", loadProducts);
+function deactivateProduct(){
+  const pid = (pId.value || "").trim();
+  if (!pid) { prodMsg.innerHTML = "<span class='err'>Entre ProductID</span>"; return; }
+  if (!confirm("Désactiver " + pid + " ?")) return;
+  jsonp("admin_deleteProduct", { productId: pid }, res=>{
+    prodMsg.innerHTML = res.ok ? "<span class='ok'>Désactivé ✅</span>" : "<span class='err'>"+(res.error||res.message||"Erreur")+"</span>";
+    loadProducts();
+  });
+}
+
+function quickStock(productId){
+  const inp = document.getElementById("stk_" + productId);
+  const stock = Number(inp.value || 0);
+  jsonp("admin_updateStock", { productId, stock }, res=>{
+    if (!res.ok) return toast("Erreur stock: " + (res.error||res.message||""));
+    toast("Stock OK ✅");
+    loadProducts();
+  });
+}
+
+/************ DASHBOARD (jour) ************/
+function renderDashboardFromCache(){
+  const orders = Array.isArray(lastOrdersCache) ? lastOrdersCache : [];
+  const todayKey = (new Date()).toISOString().slice(0,10); // YYYY-MM-DD
+
+  // filtrer aujourd’hui (DateHeure peut être Date, string, etc.)
+  const todays = orders.filter(o=>{
+    const d = parseDateAny(o.DateHeure);
+    if (!d) return false;
+    return d.toISOString().slice(0,10) === todayKey;
+  });
+
+  const count = todays.length;
+  const total = todays.reduce((s,o)=> s + Number(o.Total||0), 0);
+
+  // items vendus
+  let itemsQty = 0;
+  const byName = new Map();
+  todays.forEach(o=>{
+    const items = Array.isArray(o.items) ? o.items : [];
+    items.forEach(it=>{
+      const name = String(it.Nom||"").trim() || String(it.ProductID||"").trim();
+      const q = Number(it.Quantite||0);
+      if (!name) return;
+      itemsQty += q;
+      byName.set(name, (byName.get(name)||0) + q);
+    });
+  });
+
+  dOrders.textContent = String(count);
+  dOrdersSub.textContent = "Date: " + todayKey;
+  dTotal.textContent = String(total);
+  dItems.textContent = String(itemsQty);
+
+  // top produits
+  const top = Array.from(byName.entries()).sort((a,b)=> b[1]-a[1]).slice(0, 15);
+  let html = "<tr><th>Produit</th><th>Quantité</th></tr>";
+  if (top.length === 0) html += "<tr><td colspan='2'>Aucune vente aujourd’hui</td></tr>";
+  else top.forEach(([n,q])=>{
+    html += `<tr><td>${esc(n)}</td><td>${esc(q)}</td></tr>`;
+  });
+  topTable.innerHTML = html;
+}
+
+/************ HELPERS ************/
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+function escAttr(s){ return String(s ?? "").replace(/"/g,"&quot;"); }
+
+function parseDateAny(v){
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const s = String(v);
+  // Apps Script peut renvoyer un format lisible; Date() essaie de parser
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
+function fmtDate(v){
+  const d = parseDateAny(v);
+  if (!d) return String(v||"");
+  return d.toLocaleString();
+}
 </script>
 
 </body>
