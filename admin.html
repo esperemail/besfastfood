@@ -650,6 +650,12 @@ async function loadOrders(){
                   Prêt à emporter
                 </button>
               ` : ``}
+              
+              ${/livraison/i.test(type) ? `
+                <button class="btn good" type="button" onclick='readyDeliver(${safeOrderJson})'>
+                  Prêt à livrer
+                </button>
+              ` : ``}
 
               <button class="btn" type="button" onclick='printPOS80(${safeOrderJson})'>
                 Imprimer 80mm
