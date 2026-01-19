@@ -142,6 +142,16 @@
     .twoCol{display:grid;grid-template-columns: 1fr 1fr; gap:10px}
     @media(max-width:700px){.twoCol{grid-template-columns:1fr}}
     .small{font-size:12px}
+
+    .noteBar{
+      border:1px solid rgba(255,193,7,.25);
+      background: rgba(255,193,7,.10);
+      padding:10px 12px;
+      border-radius:12px;
+      font-weight:900;
+      margin-bottom:12px;
+      display:none;
+    }
   </style>
 </head>
 
@@ -168,7 +178,6 @@
       </div>
 
       <div class="row">
-        <!-- ✅ ADMIN KEY auto (pré-rempli) -->
         <input id="adminKey" placeholder="ADMIN KEY (auto)" style="max-width:340px" />
         <select id="statusFilter" style="max-width:240px">
           <option value="">Tous statuts</option>
@@ -315,6 +324,8 @@
 
       <!-- PLACE ORDER -->
       <section id="tab-place" style="display:none">
+        <div id="deliveryWarn" class="noteBar">Zone de livraison obligatoire</div>
+
         <div class="grid">
           <div class="card">
             <div class="cardHead">
@@ -366,7 +377,20 @@
                 </div>
               </div>
 
-              <div id="p_addrWrap" style="display:none;margin-bottom:10px">
+              <!-- ✅ Livraison: zone + adresse -->
+              <div id="p_delWrap" style="display:none;margin-bottom:10px">
+                <label>Zone de livraison</label>
+                <select id="p_zone">
+                  <option value="">Choisir la zone…</option>
+                  <option value="Centre ville Madeline">Centre ville Madeline — 250.00 HTG</option>
+                  <option value="Centre ville -Barrière Bouteille">Centre ville -Barrière Bouteille — 250.00 HTG</option>
+                  <option value="Centre ville - Haut du Cap">Centre ville - Haut du Cap — 350.00 HTG</option>
+                  <option value="Centre ville- Quartier Morin">Centre ville- Quartier Morin — 350.00 HTG</option>
+                  <option value="Centre ville - Morne rouge">Centre ville - Morne rouge — 500.00 HTG</option>
+                  <option value="Centre ville - Limonade">Centre ville - Limonade — 500.00 HTG</option>
+                </select>
+
+                <div style="height:10px"></div>
                 <label>Adresse (livraison)</label>
                 <textarea id="p_addr" placeholder="Adresse…"></textarea>
               </div>
@@ -378,8 +402,12 @@
               <div id="placeCartItems" class="muted">Panier vide</div>
 
               <div class="hr"></div>
+
               <div class="row sp">
-                <b>Total</b>
+                <div>
+                  <b>Total</b>
+                  <div class="muted small" id="placeFeesInfo" style="margin-top:2px"></div>
+                </div>
                 <b id="placeTotal">0.00 HTG</b>
               </div>
 
@@ -403,6 +431,25 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzQshvQz_slq9esRqHODdW0
 const DEFAULT_COUNTRY_CODE = "509";
 const DEFAULT_ADMIN_KEY = "bes_admin_06070048094439";
 const LS_ADMIN_KEY = "bes_admin_key";
+
+/***************
+ * Livraison: frais par zone
+ ***************/
+const DELIVERY_FEES = {
+  "Centre ville Madeline": 250,
+  "Centre ville -Barrière Bouteille": 250,
+  "Centre ville - Haut du Cap": 350,
+  "Centre ville- Quartier Morin": 350,
+  "Centre ville - Morne rouge": 500,
+  "Centre ville - Limonade": 500,
+};
+
+function getDeliveryFee(){
+  const isLiv = norm($("p_type").value)==="livraison";
+  if(!isLiv) return 0;
+  const z = $("p_zone").value.trim();
+  return Number(DELIVERY_FEES[z] || 0);
+}
 
 /***************
  * JSONP helper
@@ -579,7 +626,6 @@ async function loadOrders(){
       const safeOrderJson = JSON.stringify(o).replace(/</g,"\\u003c");
       const oid = String(o.OrderID||"").trim();
 
-      // ✅ Nouvelle commande = id pas vu au refresh précédent ET statut Reçue
       const isNew = (!prevOrderIds.has(oid)) && (/reç|recu/i.test(st));
       const trClass = (isNew ? "is-new " : "") + rowClassForStatus(st);
 
@@ -619,7 +665,6 @@ async function loadOrders(){
       `;
     }).join("");
 
-    // ✅ après rendu : ce qui est affiché devient "vu"
     prevOrderIds = currentIds;
 
   }catch(e){
@@ -663,7 +708,7 @@ window.readyTakeaway = async function(order){
 };
 
 /***************
- * Print POS 80mm (corrigé, sans duplication)
+ * Print POS 80mm
  ***************/
 window.printPOS80 = function(order){
   try{
@@ -756,7 +801,6 @@ async function loadCategories(){
     const sel = $("pf_catSelect");
     sel.innerHTML = `<option value="">(Aucune)</option>` + categoriesCache.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
   }catch(e){
-    // si la route n'existe pas / erreur, on ne bloque pas
     categoriesCache = [];
     $("pf_catSelect").innerHTML = `<option value="">(Aucune)</option>`;
   }
@@ -896,12 +940,19 @@ $("setStockBtn").addEventListener("click", async ()=>{
 let menuProducts = [];
 const placeCart = {}; // { productId: qty }
 
-function syncPlaceAddr(){
+function syncPlaceDeliveryUI(){
   const isLiv = norm($("p_type").value)==="livraison";
-  $("p_addrWrap").style.display = isLiv ? "block" : "none";
-  if(!isLiv) $("p_addr").value="";
+  $("p_delWrap").style.display = isLiv ? "block" : "none";
+  $("deliveryWarn").style.display = "none";
+
+  if(!isLiv){
+    $("p_zone").value="";
+    $("p_addr").value="";
+  }
+  renderPlaceCart();
 }
-function calcPlaceTotal(){
+
+function calcPlaceSubtotal(){
   let total = 0;
   for(const [pid, qty] of Object.entries(placeCart)){
     const p = menuProducts.find(x=>String(x.ProductID)===String(pid));
@@ -910,8 +961,20 @@ function calcPlaceTotal(){
   }
   return total;
 }
+
+function calcPlaceTotal(){
+  return calcPlaceSubtotal() + getDeliveryFee();
+}
+
 function renderPlaceCart(){
   const entries = Object.entries(placeCart);
+
+  const fee = getDeliveryFee();
+  const isLiv = norm($("p_type").value)==="livraison";
+  $("placeFeesInfo").textContent = isLiv
+    ? (fee > 0 ? `Frais livraison: ${fmtHTG(fee)}` : "Frais livraison: (choisis une zone)")
+    : "";
+
   $("placeTotal").textContent = fmtHTG(calcPlaceTotal());
 
   if(entries.length===0){
@@ -935,9 +998,27 @@ function renderPlaceCart(){
         </div>
       `;
     }).join("");
+
+    // Afficher la ligne de frais livraison dans le panier (si livraison)
+    if(isLiv){
+      const z = $("p_zone").value.trim();
+      const f = fee;
+      $("placeCartItems").innerHTML += `
+        <div class="hr"></div>
+        <div class="row sp">
+          <div>
+            <b>Frais livraison</b>
+            <div class="muted small">${escapeHtml(z || "Zone non choisie")}</div>
+          </div>
+          <b>${fmtHTG(f)}</b>
+        </div>
+      `;
+    }
   }
+
   validatePlaceOrderBtn();
 }
+
 window.placeQty = function(pid, q){
   const next = Number(q||0);
   if(next <= 0) delete placeCart[pid];
@@ -958,9 +1039,12 @@ function validatePlaceOrderBtn(){
   const nameOk = !!$("p_name").value.trim();
   const phoneOk = !!$("p_phone").value.trim();
   const payOk = !!$("p_pay").value.trim();
+
   const isLiv = norm($("p_type").value)==="livraison";
+  const zoneOk = !isLiv || !!$("p_zone").value.trim();
   const addrOk = !isLiv || !!$("p_addr").value.trim();
-  $("placeOrderBtn").disabled = !(itemsCount>0 && nameOk && phoneOk && payOk && addrOk);
+
+  $("placeOrderBtn").disabled = !(itemsCount>0 && nameOk && phoneOk && payOk && zoneOk && addrOk);
 }
 
 function renderMenu(){
@@ -1010,7 +1094,10 @@ async function loadMenuForPlace(){
 
 $("menuSearch").addEventListener("input", renderMenu);
 $("reloadMenuBtn").addEventListener("click", loadMenuForPlace);
-$("p_type").addEventListener("change", ()=>{ syncPlaceAddr(); validatePlaceOrderBtn(); });
+
+$("p_type").addEventListener("change", ()=>{ syncPlaceDeliveryUI(); validatePlaceOrderBtn(); });
+$("p_zone").addEventListener("change", ()=>{ renderPlaceCart(); validatePlaceOrderBtn(); });
+
 ["p_name","p_phone","p_addr","p_note"].forEach(id=>{
   document.getElementById(id).addEventListener("input", validatePlaceOrderBtn);
 });
@@ -1027,15 +1114,45 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
     const items = Object.entries(placeCart).map(([ProductID, Quantite])=>({ ProductID, Quantite }));
     if(items.length===0) throw new Error("Panier vide");
 
+    const typeCommande = $("p_type").value;
+    const isLiv = norm(typeCommande)==="livraison";
+
+    if(isLiv){
+      const z = $("p_zone").value.trim();
+      if(!z){
+        $("deliveryWarn").style.display = "block";
+        throw new Error("Zone de livraison obligatoire.");
+      }
+      const addr = $("p_addr").value.trim();
+      if(!addr){
+        $("deliveryWarn").style.display = "block";
+        throw new Error("Adresse obligatoire.");
+      }
+    }
+
+    const fee = getDeliveryFee();
+    const sub = calcPlaceSubtotal();
+    const total = sub + fee;
+
+    // On garde la note existante + ajoute info livraison proprement
+    const baseNote = $("p_note").value.trim();
+    const zone = $("p_zone").value.trim();
+    const deliveryNote = isLiv ? `Zone: ${zone} | Frais livraison: ${fmtHTG(fee)}` : "";
+    const noteCommande = [baseNote, deliveryNote].filter(Boolean).join(" | ");
+
     const payload = {
       guestId: "admin-pos",
       clientNom: $("p_name").value.trim(),
       telephone: $("p_phone").value.trim(),
-      typeCommande: $("p_type").value,
-      adresse: $("p_addr").value.trim(),
-      noteCommande: $("p_note").value.trim(),
+      typeCommande,
+      adresse: isLiv ? `${zone} — ${$("p_addr").value.trim()}` : "",
+      noteCommande,
       paymentMethod: $("p_pay").value.trim(),
-      items
+      items,
+      // BONUS: on envoie ces champs si tu veux les gérer côté Apps Script plus tard
+      deliveryZone: isLiv ? zone : "",
+      deliveryFee: isLiv ? fee : 0,
+      totalOverride: total
     };
 
     const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
@@ -1043,16 +1160,20 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
 
     toast("Commande enregistrée ✅ ID: " + (r.orderId || "OK"));
 
+    // Reset complet
     for(const k of Object.keys(placeCart)) delete placeCart[k];
     $("p_note").value="";
     $("p_addr").value="";
+    $("p_zone").value="";
     $("p_type").value="Sur place";
     $("p_pay").value="";
-    syncPlaceAddr();
+    $("deliveryWarn").style.display="none";
+
+    syncPlaceDeliveryUI();
     renderPlaceCart();
 
     loadMenuForPlace();
-    loadOrders(); // ✅ pour voir la commande apparaître
+    loadOrders();
 
   }catch(e){
     showErr(e.message || e);
@@ -1063,17 +1184,15 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
  * Boot
  ***************/
 (function(){
-  // ✅ ADMIN KEY auto + persist
   const k = getAdminKey();
   $("adminKey").value = k;
   setAdminKey(k);
 
-  // si tu changes manuellement, on sauvegarde aussi
   $("adminKey").addEventListener("input", ()=>{
     setAdminKey($("adminKey").value.trim());
   });
 
-  syncPlaceAddr();
+  syncPlaceDeliveryUI();
   loadOrders();
 })();
 </script>
