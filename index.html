@@ -518,13 +518,23 @@
     else card.classList.remove("dim");
   }
 
-  function safeImgUrl(u){
-    const url = String(u||"").trim();
-    if(!url) return "";
-    if(/^https?:\/\//i.test(url)) return url;
-    if(url.startsWith("./") || url.startsWith("assets/")) return url;
-    return "";
-  }
+ function safeImgUrl(u){
+  const url = String(u||"").trim();
+  if(!url) return "";
+  if(/^https?:\/\//i.test(url)) return url;
+
+  // accepte ./fichier.png
+  if(url.startsWith("./")) return url;
+
+  // accepte assets/...
+  if(url.startsWith("assets/")) return url;
+
+  // ✅ accepte aussi "Cornet.png" (racine)
+  if(!url.includes("/") && !url.includes("\\")) return "./" + url;
+
+  return "";
+}
+
 
   /*********************
    * JSONP (anti CORS)
@@ -1156,6 +1166,7 @@ function slugifyName(name){
 
 </body>
 </html>
+
 
 
 
