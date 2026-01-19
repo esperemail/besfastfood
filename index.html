@@ -679,6 +679,28 @@
     }
     updateFeeBox();
   }
+  
+/*********************
+ * IMAGES (fallback local pour certains produits)
+ * Si la colonne "Image" est vide dans Sheets, on utilise ces chemins.
+ *********************/
+const PRODUCT_IMAGES_FALLBACK = {
+  "cornet-6-pieces": "Cornet.png",
+  "gratine-wings": "Gratiné & Wings.png",
+  "gratine-simple": "Gratiné.png",
+  "wings-simple": "Wings au BBQ".png",
+  "cupcake-6-pieces": "Cucacke.png",
+  "lasagne-wings": "lazagne & Wings.png",
+};
+
+function slugifyName(name){
+  return String(name||"")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // enlève accents
+    .replace(/&/g, " ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 
   /*********************
    * MENU (depuis Apps Script)
@@ -690,7 +712,12 @@
     const Prix = Number(p.Prix ?? p.price ?? 0);
     const Description = String(p.Description ?? p.desc ?? "").trim();
     const Categorie = String(p.Categorie ?? p.category ?? "").trim();
-    const Image = String(p.Image ?? p.image ?? "").trim();
+    let Image = String(p.Image ?? p.image ?? "").trim();
+    if(!Image){
+    const key = slugifyName(Nom);
+    Image = PRODUCT_IMAGES_FALLBACK[key] || "";
+}
+
     const Stock = Number(p.Stock ?? p.stock ?? 0);
 
     return { ProductID, Nom, Prix, Description, Categorie, Image, Stock };
@@ -1129,4 +1156,5 @@
 
 </body>
 </html>
+
 
