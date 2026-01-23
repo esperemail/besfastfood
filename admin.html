@@ -153,7 +153,7 @@
       display:none;
     }
 
-    /* ✅ checkbox livré */
+    /* ✅ Livré */
     .deliveredBox{
       display:flex;
       align-items:center;
@@ -169,6 +169,10 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
       font-size:12px;
       color: rgba(233,238,248,.9);
+      max-width: 160px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
   </style>
 </head>
@@ -200,6 +204,12 @@
 
         <!-- ✅ Recherche ID commande -->
         <input id="orderIdSearch" placeholder="Recherche ID commande…" style="max-width:260px" />
+
+        <!-- ✅ Masquer livrés -->
+        <label class="pill" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input id="hideDelivered" type="checkbox" style="width:18px;height:18px;accent-color:#FFC107;margin:0">
+          Masquer livrés
+        </label>
 
         <select id="statusFilter" style="max-width:240px">
           <option value="">Tous statuts</option>
@@ -243,13 +253,12 @@
         </div>
         <div class="muted small" style="margin-top:10px">
           Astuce: les nouvelles commandes (non vues) apparaissent en <b>jaune</b>.
-          Les commandes <b>Livré</b> descendent automatiquement en bas.
+          Les commandes <b>Livré</b> descendent automatiquement en bas (ou masquées si filtre activé).
         </div>
       </section>
 
       <!-- PRODUCTS -->
       <section id="tab-products" style="display:none">
-        <!-- (inchangé) -->
         <div class="grid">
           <div class="card">
             <div class="cardHead">
@@ -269,7 +278,6 @@
               </div>
             </div>
             <div class="content">
-              <!-- (inchangé) -->
               <div class="twoCol">
                 <div>
                   <label class="small muted">ProductID</label>
@@ -343,7 +351,7 @@
               </div>
 
               <div class="muted small" style="margin-top:8px">
-                Note: si Stock = 0 → le produit ne sort pas côté client.
+                Note: si Stock = 0 → le produit ne sort pas côté client (ton API getProducts filtre déjà).
               </div>
             </div>
           </div>
@@ -352,8 +360,8 @@
 
       <!-- PLACE ORDER -->
       <section id="tab-place" style="display:none">
-        <!-- (inchangé) -->
         <div id="deliveryWarn" class="noteBar">Zone de livraison obligatoire</div>
+
         <div class="grid">
           <div class="card">
             <div class="cardHead">
@@ -375,7 +383,6 @@
               <button class="btn bad" type="button" id="clearPlaceCartBtn">Vider</button>
             </div>
             <div class="content">
-              <!-- (inchangé) -->
               <div class="row" style="margin-bottom:10px">
                 <div style="flex:1">
                   <label>Nom</label>
@@ -610,11 +617,9 @@ $("refreshBtn").addEventListener("click", ()=>{
 });
 $("statusFilter").addEventListener("change", loadOrders);
 
-/* ✅ recherche ID : filtre + reload */
-$("orderIdSearch").addEventListener("input", ()=>{
-  // filtre local instantané (pas besoin d’attendre l’API)
-  renderOrdersTable(lastOrdersCache);
-});
+/* ✅ Recherche ID + Masquer livrés (filtre local instant) */
+$("orderIdSearch").addEventListener("input", ()=> renderOrdersTable(lastOrdersCache));
+$("hideDelivered").addEventListener("change", ()=> renderOrdersTable(lastOrdersCache));
 
 /***************
  * Orders (tri + livré)
@@ -637,26 +642,29 @@ function sortOrdersForDisplay(list){
     const aDelivered = norm(a.Statut) === "livré";
     const bDelivered = norm(b.Statut) === "livré";
     if(aDelivered !== bDelivered) return aDelivered ? 1 : -1; // livré => bas
-    // date desc
     return String(b.DateHeure||"").localeCompare(String(a.DateHeure||""));
   });
   return clone;
 }
 
-/* ✅ filtre ID */
-function filterOrdersBySearch(list){
+/* ✅ filtre : recherche ID + masquer livrés */
+function filterOrders(list){
   const q = String($("orderIdSearch").value||"").trim();
-  if(!q) return list;
-  return (list||[]).filter(o => String(o.OrderID||"").includes(q));
+  const hideDel = !!$("hideDelivered").checked;
+
+  return (list||[]).filter(o=>{
+    if(hideDel && norm(o.Statut) === "livré") return false;
+    if(q && !String(o.OrderID||"").includes(q)) return false;
+    return true;
+  });
 }
 
 async function loadOrders(){
   try{
     const k = $("adminKey").value.trim();
     const status = $("statusFilter").value.trim();
-    const orderId = $("orderIdSearch").value.trim();
 
-    const r = await apiJsonp("admin_listOrders", { k, limit:"200", status, orderId });
+    const r = await apiJsonp("admin_listOrders", { k, limit:"200", status });
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listOrders");
 
     const orders = Array.isArray(r.orders) ? r.orders : [];
@@ -673,10 +681,7 @@ async function loadOrders(){
 function renderOrdersTable(ordersRaw){
   const tb = $("ordersTbody");
 
-  // 1) filtre recherche
-  let orders = filterOrdersBySearch(ordersRaw);
-
-  // 2) tri (non livré en haut, livré en bas, récent en haut)
+  let orders = filterOrders(ordersRaw);
   orders = sortOrdersForDisplay(orders);
 
   if(orders.length===0){
@@ -710,21 +715,18 @@ function renderOrdersTable(ordersRaw){
     return `
       <tr class="${trClass}">
         <td>${escapeHtml(o.DateHeure || "")}</td>
-        <td class="idCell">${escapeHtml(oid)}</td>
+        <td class="idCell" title="${escapeHtml(oid)}">${escapeHtml(oid)}</td>
         <td><b>${escapeHtml(o.ClientNom || "")}</b><div class="muted">${escapeHtml(o.Telephone || "")}</div></td>
         <td>${escapeHtml(type)}</td>
         <td>${escapeHtml((o.ResumeItems||"") + "")}</td>
         <td><b>${fmtHTG(o.Total||0)}</b></td>
         <td><span class="${badgeClass}">${escapeHtml(st)}</span></td>
-
-        <!-- ✅ checkbox livré -->
         <td>
           <label class="deliveredBox">
             <input type="checkbox" ${deliveredChecked ? "checked" : ""} onchange="toggleDelivered('${oid.replace(/'/g,"")}', this.checked)">
             Livré
           </label>
         </td>
-
         <td>
           <div class="actions">
             ${isSurPlace ? `
@@ -751,14 +753,13 @@ function renderOrdersTable(ordersRaw){
   prevOrderIds = currentIds;
 }
 
-/* ✅ coche livré => statut Livré / si décoché => Reçue (ou tu peux choisir autre) */
+/* ✅ coche livré => statut Livré ; décoche => Reçue */
 window.toggleDelivered = async function(orderId, isDelivered){
   try{
     const nextStatus = isDelivered ? "Livré" : "Reçue";
     await setStatus(orderId, nextStatus);
     toast(isDelivered ? "Marqué livré ✅" : "Remis en Reçue ✅");
-    // reload pour re-trier (livré descend)
-    loadOrders();
+    loadOrders(); // re-tri + re-filtre
   }catch(e){
     showErr(e.message || e);
   }
@@ -930,15 +931,411 @@ ${isLiv ? `
 };
 
 /***************
- * Products / place order (inchangé)
- * (=> garde ton code existant ici)
+ * Products (liste + upsert + catégories + stock)
  ***************/
+let productsCache = [];
+let categoriesCache = [];
 
-/* --- ton code produits + place order reste identique --- */
-/* Pour garder la réponse lisible, je n’ai pas ré-écrit toute la partie produits/place ici.
-   Tu peux conserver exactement ce que tu avais après printPOS80.
-   Si tu veux je te renvoie un fichier 100% complet “copier-coller” avec TOUT jusqu’au bas. */
+async function loadCategories(){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_listCategories", { k });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listCategories");
 
+    categoriesCache = Array.isArray(r.categories) ? r.categories : [];
+    const sel = $("pf_catSelect");
+    sel.innerHTML = `<option value="">(Aucune)</option>` + categoriesCache.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  }catch(e){
+    categoriesCache = [];
+    $("pf_catSelect").innerHTML = `<option value="">(Aucune)</option>`;
+  }
+}
+
+async function loadProducts(){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_listProducts", { k });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listProducts");
+
+    const list = Array.isArray(r.products) ? r.products : [];
+    productsCache = list;
+
+    if(list.length===0){
+      $("productsBox").innerHTML = `<div class="muted">Aucun produit.</div>`;
+      return;
+    }
+
+    const html = list.map(p=>{
+      const actif = String(p.Actif || "TRUE").toUpperCase() !== "FALSE";
+      const stock = Number(p.Stock || 0);
+      const pid = escapeHtml(p.ProductID||"");
+      return `
+        <div class="prod" style="margin-bottom:10px">
+          <div style="min-width:0">
+            <b>${escapeHtml(p.Nom||"")}</b>
+            <div class="muted">${escapeHtml(p.Categorie||"")}</div>
+            <div class="muted">ID: <b>${pid}</b> • Prix: <b>${fmtHTG(p.Prix||0)}</b> • Stock: <b>${stock}</b> • Actif: <b>${actif ? "Oui" : "Non"}</b></div>
+            <div class="muted small">Ordre: ${escapeHtml(p.Ordre ?? "")}</div>
+          </div>
+          <div class="row" style="justify-content:flex-end">
+            <span class="badge ${stock>0 && actif ? "good":"bad"}">${stock>0 && actif ? "En vente" : "Hors vente"}</span>
+            <button class="btn" type="button" onclick="pickProduct('${String(p.ProductID||"").replace(/'/g,"")}')">Sélectionner</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    $("productsBox").innerHTML = html;
+
+  }catch(e){
+    showErr(e.message || e);
+    $("productsBox").textContent = "Erreur.";
+  }
+}
+
+window.pickProduct = function(productId){
+  const p = productsCache.find(x=>String(x.ProductID)===String(productId));
+  if(!p){ showErr("Produit introuvable."); return; }
+
+  $("pf_id").value = String(p.ProductID||"");
+  $("pf_name").value = String(p.Nom||"");
+  $("pf_price").value = Number(p.Prix||0);
+  $("pf_stock").value = Number(p.Stock||0);
+  $("pf_order").value = (p.Ordre!==undefined && p.Ordre!==null) ? String(p.Ordre) : "";
+  $("pf_active").value = (String(p.Actif||"TRUE").toUpperCase() === "FALSE") ? "FALSE" : "TRUE";
+  $("pf_catNew").value = "";
+  $("pf_catSelect").value = String(p.Categorie||"");
+
+  $("stock_pid").value = String(p.ProductID||"");
+  $("stock_value").value = Number(p.Stock||0);
+
+  toast("Produit sélectionné ✅");
+};
+
+$("reloadProductsBtn").addEventListener("click", loadProducts);
+$("reloadCatsBtn").addEventListener("click", loadCategories);
+
+$("clearFormBtn").addEventListener("click", ()=>{
+  ["pf_id","pf_name","pf_catNew","pf_price","pf_stock","pf_order"].forEach(id=>$(id).value="");
+  $("pf_catSelect").value="";
+  $("pf_active").value="TRUE";
+  toast("Formulaire vidé ✅");
+});
+
+$("fillFromSelectedBtn").addEventListener("click", ()=>{
+  const pid = $("pf_id").value.trim();
+  if(!pid){ showErr("Mets ProductID d'abord, ou clique Sélectionner."); return; }
+  const p = productsCache.find(x=>String(x.ProductID)===String(pid));
+  if(!p){ showErr("Produit introuvable dans la liste."); return; }
+  window.pickProduct(pid);
+});
+
+$("saveProductBtn").addEventListener("click", async ()=>{
+  try{
+    const k = $("adminKey").value.trim();
+    const ProductID = $("pf_id").value.trim();
+    const Nom = $("pf_name").value.trim();
+    if(!ProductID) throw new Error("ProductID obligatoire.");
+    if(!Nom) throw new Error("Nom obligatoire.");
+
+    const catNew = $("pf_catNew").value.trim();
+    const catSel = $("pf_catSelect").value.trim();
+    const Categorie = catNew || catSel || "";
+
+    const Prix = Number($("pf_price").value || 0);
+    const Stock = Number($("pf_stock").value || 0);
+    const Ordre = ($("pf_order").value.trim()==="") ? 9999 : Number($("pf_order").value);
+    const Actif = $("pf_active").value;
+
+    const product = { ProductID, Nom, Categorie, Prix, Stock, Ordre, Actif };
+
+    const r = await apiJsonp("admin_upsertProduct", { k, product: JSON.stringify(product) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_upsertProduct");
+
+    toast("Produit enregistré ✅");
+    await loadCategories();
+    await loadProducts();
+
+  }catch(e){
+    showErr(e.message || e);
+  }
+});
+
+$("setStockBtn").addEventListener("click", async ()=>{
+  try{
+    const k = $("adminKey").value.trim();
+    const productId = $("stock_pid").value.trim();
+    const stock = $("stock_value").value;
+    if(!productId) throw new Error("ProductID manquant.");
+    if(stock === "" || stock === null || stock === undefined) throw new Error("Stock manquant.");
+
+    const r = await apiJsonp("admin_updateStock", { k, productId, stock: String(stock) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_updateStock");
+
+    toast("Stock mis à jour ✅");
+    loadProducts();
+  }catch(e){
+    showErr(e.message || e);
+  }
+});
+
+/***************
+ * Place order (submitOrderLite + getProducts)
+ ***************/
+let menuProducts = [];
+const placeCart = {}; // { productId: qty }
+
+function syncPlaceDeliveryUI(){
+  const isLiv = norm($("p_type").value)==="livraison";
+  $("p_delWrap").style.display = isLiv ? "block" : "none";
+  $("deliveryWarn").style.display = "none";
+
+  if(!isLiv){
+    $("p_zone").value="";
+    $("p_addr").value="";
+  }
+  renderPlaceCart();
+}
+
+function calcPlaceSubtotal(){
+  let total = 0;
+  for(const [pid, qty] of Object.entries(placeCart)){
+    const p = menuProducts.find(x=>String(x.ProductID)===String(pid));
+    if(!p) continue;
+    total += Number(p.Prix||0) * Number(qty||0);
+  }
+  return total;
+}
+
+function calcPlaceTotal(){
+  return calcPlaceSubtotal() + getDeliveryFee();
+}
+
+function renderPlaceCart(){
+  const entries = Object.entries(placeCart);
+
+  const fee = getDeliveryFee();
+  const isLiv = norm($("p_type").value)==="livraison";
+  $("placeFeesInfo").textContent = isLiv
+    ? (fee > 0 ? `Frais livraison: ${fmtHTG(fee)}` : "Frais livraison: (choisis une zone)")
+    : "";
+
+  $("placeTotal").textContent = fmtHTG(calcPlaceTotal());
+
+  if(entries.length===0){
+    $("placeCartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+  }else{
+    $("placeCartItems").innerHTML = entries.map(([pid, qty])=>{
+      const p = menuProducts.find(x=>String(x.ProductID)===String(pid));
+      const name = p ? p.Nom : ("Produit " + pid);
+      const sub = (p ? Number(p.Prix||0) : 0) * Number(qty||0);
+      return `
+        <div class="row sp" style="margin:6px 0">
+          <div style="min-width:0">
+            <b>${escapeHtml(name)}</b>
+            <div class="muted">${fmtHTG(p?.Prix||0)} × ${qty} = <b>${fmtHTG(sub)}</b></div>
+          </div>
+          <div class="row" style="gap:6px">
+            <button class="mini" type="button" onclick="placeQty('${pid}', ${Number(qty)-1})">−</button>
+            <button class="mini" type="button" onclick="placeQty('${pid}', ${Number(qty)+1})">+</button>
+            <button class="mini" type="button" onclick="placeRm('${pid}')">x</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    if(isLiv){
+      const z = $("p_zone").value.trim();
+      const f = fee;
+      $("placeCartItems").innerHTML += `
+        <div class="hr"></div>
+        <div class="row sp">
+          <div>
+            <b>Frais livraison</b>
+            <div class="muted small">${escapeHtml(z || "Zone non choisie")}</div>
+          </div>
+          <b>${fmtHTG(f)}</b>
+        </div>
+      `;
+    }
+  }
+
+  validatePlaceOrderBtn();
+}
+
+window.placeQty = function(pid, q){
+  const next = Number(q||0);
+  if(next <= 0) delete placeCart[pid];
+  else placeCart[pid] = next;
+  renderPlaceCart();
+};
+window.placeRm = function(pid){
+  delete placeCart[pid];
+  renderPlaceCart();
+};
+window.placeAdd = function(pid){
+  placeCart[String(pid)] = (Number(placeCart[String(pid)]||0) + 1);
+  renderPlaceCart();
+};
+
+function validatePlaceOrderBtn(){
+  const itemsCount = Object.keys(placeCart).length;
+  const nameOk = !!$("p_name").value.trim();
+  const phoneOk = !!$("p_phone").value.trim();
+  const payOk = !!$("p_pay").value.trim();
+
+  const isLiv = norm($("p_type").value)==="livraison";
+  const zoneOk = !isLiv || !!$("p_zone").value.trim();
+  const addrOk = !isLiv || !!$("p_addr").value.trim();
+
+  $("placeOrderBtn").disabled = !(itemsCount>0 && nameOk && phoneOk && payOk && zoneOk && addrOk);
+}
+
+function renderMenu(){
+  const q = norm($("menuSearch").value);
+  const list = menuProducts.filter(p=>{
+    const hay = norm(p.Nom) + " " + norm(p.Categorie);
+    return !q || hay.includes(q);
+  });
+
+  if(list.length===0){
+    $("menuBox").innerHTML = `<div class="muted">Aucun produit trouvé.</div>`;
+    return;
+  }
+
+  $("menuBox").innerHTML = `
+    <div class="menuGrid">
+      ${list.map(p=>{
+        return `
+          <div class="prod">
+            <div style="min-width:0">
+              <b>${escapeHtml(p.Nom||"")}</b>
+              <div class="muted">${escapeHtml(p.Categorie||"")}</div>
+              <div class="muted">Prix: <b>${fmtHTG(p.Prix||0)}</b> • Stock: ${escapeHtml(p.Stock||"")}</div>
+            </div>
+            <div>
+              <button class="btn good" type="button" onclick="placeAdd('${String(p.ProductID).replace(/'/g,"")}')">Ajouter</button>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+async function loadMenuForPlace(){
+  try{
+    const r = await apiJsonp("getProducts", {});
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur getProducts");
+    menuProducts = Array.isArray(r.products) ? r.products : [];
+    renderMenu();
+    renderPlaceCart();
+  }catch(e){
+    showErr(e.message || e);
+    $("menuBox").textContent = "Erreur menu.";
+  }
+}
+
+$("menuSearch").addEventListener("input", renderMenu);
+$("reloadMenuBtn").addEventListener("click", loadMenuForPlace);
+
+$("p_type").addEventListener("change", ()=>{ syncPlaceDeliveryUI(); validatePlaceOrderBtn(); });
+$("p_zone").addEventListener("change", ()=>{ renderPlaceCart(); validatePlaceOrderBtn(); });
+
+["p_name","p_phone","p_addr","p_note"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", validatePlaceOrderBtn);
+});
+$("p_pay").addEventListener("change", validatePlaceOrderBtn);
+
+$("clearPlaceCartBtn").addEventListener("click", ()=>{
+  for(const k of Object.keys(placeCart)) delete placeCart[k];
+  renderPlaceCart();
+  toast("Panier vidé ✅");
+});
+
+$("placeOrderBtn").addEventListener("click", async ()=>{
+  try{
+    const items = Object.entries(placeCart).map(([ProductID, Quantite])=>({ ProductID, Quantite }));
+    if(items.length===0) throw new Error("Panier vide");
+
+    const typeCommande = $("p_type").value;
+    const isLiv = norm(typeCommande)==="livraison";
+
+    if(isLiv){
+      const z = $("p_zone").value.trim();
+      if(!z){
+        $("deliveryWarn").style.display = "block";
+        throw new Error("Zone de livraison obligatoire.");
+      }
+      const addr = $("p_addr").value.trim();
+      if(!addr){
+        $("deliveryWarn").style.display = "block";
+        throw new Error("Adresse obligatoire.");
+      }
+    }
+
+    const fee = getDeliveryFee();
+    const sub = calcPlaceSubtotal();
+    const total = sub + fee;
+
+    const baseNote = $("p_note").value.trim();
+    const zone = $("p_zone").value.trim();
+    const deliveryNote = isLiv ? `Zone: ${zone} | Frais livraison: ${fmtHTG(fee)}` : "";
+    const noteCommande = [baseNote, deliveryNote].filter(Boolean).join(" | ");
+
+    const payload = {
+      guestId: "admin-pos",
+      clientNom: $("p_name").value.trim(),
+      telephone: $("p_phone").value.trim(),
+      typeCommande,
+      adresse: isLiv ? `${zone} — ${$("p_addr").value.trim()}` : "",
+      noteCommande,
+      paymentMethod: $("p_pay").value.trim(),
+      items,
+      deliveryZone: isLiv ? zone : "",
+      deliveryFee: isLiv ? fee : 0,
+      totalOverride: total
+    };
+
+    const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur submitOrderLite");
+
+    toast("Commande enregistrée ✅ ID: " + (r.orderId || "OK"));
+
+    for(const k of Object.keys(placeCart)) delete placeCart[k];
+    $("p_note").value="";
+    $("p_addr").value="";
+    $("p_zone").value="";
+    $("p_type").value="Sur place";
+    $("p_pay").value="";
+    $("deliveryWarn").style.display="none";
+
+    syncPlaceDeliveryUI();
+    renderPlaceCart();
+
+    loadMenuForPlace();
+    loadOrders();
+
+  }catch(e){
+    showErr(e.message || e);
+  }
+});
+
+/***************
+ * Boot
+ ***************/
+(function(){
+  const k = getAdminKey();
+  $("adminKey").value = k;
+  setAdminKey(k);
+
+  $("adminKey").addEventListener("input", ()=>{
+    setAdminKey($("adminKey").value.trim());
+  });
+
+  syncPlaceDeliveryUI();
+  loadOrders();
+})();
 </script>
 </body>
 </html>
