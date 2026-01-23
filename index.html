@@ -428,7 +428,7 @@
             <label class="payRow">
               <input class="payRadio" type="radio" name="pay" value="MonCash">
               <div class="payText">
-                <div class="payTitle">MonCash — 48094439 — RALJnPIE</div>
+                <div class="payTitle">MonCash — 48094439 — RAL-Jn-PIE</div>
                 <div class="paySub">Choisis MonCash si tu as payé sur ce numéro.</div>
               </div>
             </label>
@@ -436,7 +436,7 @@
             <label class="payRow">
               <input class="payRadio" type="radio" name="pay" value="NatCash">
               <div class="payText">
-                <div class="payTitle">NatCash — 40430164 — RALJnPIE</div>
+                <div class="payTitle">NatCash — 40430164 — RAL-Jn-PIE</div>
                 <div class="paySub">Choisis NatCash si tu as payé sur ce numéro.</div>
               </div>
             </label>
@@ -517,6 +517,35 @@
     if(isBusy) card.classList.add("dim");
     else card.classList.remove("dim");
   }
+function openQrModal(text){
+  const modal = document.getElementById("qrModal");
+  const img = document.getElementById("qrImg");
+  const ta = document.getElementById("qrText");
+
+  ta.value = text;
+
+  // QR via Google Chart (simple & fiable)
+  const url = "https://chart.googleapis.com/chart?cht=qr&chs=260x260&chl=" + encodeURIComponent(text);
+  img.src = url;
+
+  modal.style.display = "block";
+}
+
+function closeQrModal(){
+  document.getElementById("qrModal").style.display = "none";
+}
+
+async function copyQrText(){
+  try{
+    const t = document.getElementById("qrText").value;
+    await navigator.clipboard.writeText(t);
+    toast("Résumé copié ✅");
+    setTimeout(clearToast, 1200);
+  }catch(e){
+    toast("Impossible de copier (navigateur).");
+    setTimeout(clearToast, 1400);
+  }
+}
 
  function safeImgUrl(u){
   const url = String(u||"").trim();
@@ -1007,6 +1036,7 @@ function slugifyName(name){
     }
     if(payload.noteCommande){
       msg += "\n📝 Note : " + payload.noteCommande + "\n";
+      msg += "\n⚠️ Il faut envoyer par WhatsApp la preuve de paiement.\n";
     }
     return msg;
   }
@@ -1082,16 +1112,34 @@ function slugifyName(name){
 
       // 2) Sheets
       try{
-        const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
-        if(r && r.ok){
-          toast("✅ Commande enregistrée sur Google Sheets (ID: " + (r.orderId || "OK") + ")");
-        }else{
-          toast("WhatsApp ouvert ✅ (Sheets: échec)");
-        }
-      }catch(e){
-        toast("WhatsApp ouvert ✅ (Erreur Sheets)");
-      }
+      let savedOrderId = "";
+try{
+  const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
+  if(r && r.ok){
+    savedOrderId = String(r.orderId || "");
+    toast("✅ Commande enregistrée sur Google Sheets (ID: " + (savedOrderId || "OK") + ")");
+  }else{
+    toast("WhatsApp ouvert ✅ (Sheets: échec)");
+  }
+}catch(e){
+  toast("WhatsApp ouvert ✅ (Erreur Sheets)");
+}
 
+// ✅ QR Code (même si Sheets échoue, on montre un résumé)
+const qrSummary =
+  "BES FAST FOOD | " +
+  "ID: " + (savedOrderId || ("LOCAL-" + Date.now())) + " | " +
+  "Nom: " + payload.clientNom + " | " +
+  "Tel: " + payload.telephone + " | " +
+  "Type: " + payload.typeCommande + " | " +
+  (norm(payload.typeCommande)==="livraison" ? ("Adr: " + (payload.adresse||"-") + " | ") : "") +
+  "Paiement: " + payload.paymentMethod + " | " +
+  "Total: " + fmtHTG(payload.total) + " | " +
+  "Items: " + payload.items.map(it => `${it.Nom}x${it.Quantite}`).join(", ");
+
+openQrModal(qrSummary);
+
+        
       // ✅ Reset TOUJOURS (évite bouton “pressé” + double commande)
       clearCart();
       renderCart();
@@ -1163,9 +1211,27 @@ function slugifyName(name){
     loadMenuFromServer();
   })();
 </script>
+<div id="qrModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; padding:18px;">
+  <div style="max-width:420px; margin:60px auto; background:#fff; border-radius:18px; padding:16px; border:1px solid rgba(0,0,0,.15);">
+    <div style="font-weight:1000; font-size:18px; margin-bottom:6px;">✅ Commande envoyée</div>
+    <div style="color:#6b7280; font-size:13px; margin-bottom:12px;">Voici ton QR Code (résumé commande).</div>
+
+    <div style="display:flex; justify-content:center; margin:12px 0;">
+      <img id="qrImg" alt="QR Code" style="width:260px; height:260px; border-radius:14px; border:1px solid rgba(0,0,0,.12);">
+    </div>
+
+    <textarea id="qrText" readonly style="width:100%; min-height:90px; font-size:12px;"></textarea>
+
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <button type="button" class="btn" onclick="closeQrModal()">Fermer</button>
+      <button type="button" class="btn btnAdd" onclick="copyQrText()">Copier résumé</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
+
 
 
 
