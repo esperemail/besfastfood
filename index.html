@@ -407,7 +407,7 @@
     <div style="color:#6b7280; font-size:13px; margin-bottom:10px;">Voici ton QR Code (résumé commande).</div>
 
     <div class="qrWrap">
-      <canvas id="qrCanvas" width="560" height="560"></canvas>
+     <img id="qrImg" alt="QR Code" style="width:280px;height:280px;border-radius:14px;border:1px solid rgba(0,0,0,.12);background:#fff;">
     </div>
 
     <div style="display:flex; gap:10px; margin-top:12px;">
@@ -948,19 +948,24 @@ function buildWhatsAppMessage(payload){
  *********************/
 let _lastQrText = "";
 function openQrModal(text){
-  _lastQrText = String(text || "");
   const modal = document.getElementById("qrModal");
-  modal.style.display = "block";
-  modal.setAttribute("aria-hidden", "false");
+  const img = document.getElementById("qrImg");
 
-  // Render QR in canvas
-  renderQrToCanvas(_lastQrText);
+  // texte court et propre
+  const payload = String(text || "").trim();
+
+  // QR super compatible (QRServer)
+  img.src = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(payload);
+
+  modal.style.display = "block";
+  modal.setAttribute("aria-hidden","false");
 }
 function closeQrModal(){
   const modal = document.getElementById("qrModal");
   modal.style.display = "none";
-  modal.setAttribute("aria-hidden", "true");
+  modal.setAttribute("aria-hidden","true");
 }
+
 
 /*********************
  * CHECKOUT => WhatsApp + Sheets
@@ -1411,3 +1416,4 @@ function QRCodeModel(typeNumber, errorCorrectLevel){
 </script>
 </body>
 </html>
+
