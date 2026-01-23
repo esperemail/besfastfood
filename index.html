@@ -1035,9 +1035,9 @@ function slugifyName(name){
       msg += "🏠 Adresse : " + (payload.adresse || "-") + "\n";
     }
     if(payload.noteCommande){
-      msg += "\n📝 Note : " + payload.noteCommande + "\n";
-      msg += "\n⚠️ Il faut envoyer par WhatsApp la preuve de paiement.\n";
+      msg += "\n📝 Note : " + payload.noteCommande + "\n";      
     }
+    msg += "\n⚠️ Il faut envoyer par WhatsApp la preuve de paiement.\n";
     return msg;
   }
 
@@ -1111,7 +1111,7 @@ function slugifyName(name){
       openWhatsApp(buildWhatsAppMessage(payload));
 
       // 2) Sheets
-      try{
+    
       let savedOrderId = "";
 try{
   const r = await apiJsonp("submitOrderLite", { payload: JSON.stringify(payload) });
@@ -1124,7 +1124,7 @@ try{
 }catch(e){
   toast("WhatsApp ouvert ✅ (Erreur Sheets)");
 }
-
+      
 // ✅ QR Code (même si Sheets échoue, on montre un résumé)
 const qrSummary =
   "BES FAST FOOD | " +
@@ -1231,6 +1231,7 @@ openQrModal(qrSummary);
 
 </body>
 </html>
+
 
 
 
