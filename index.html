@@ -268,7 +268,6 @@
 
     .dim{ opacity:.65; pointer-events:none; filter:saturate(.9); }
 
-    /* ✅ Paiement: mise en forme corrigée */
     .payBox{
       border:1px solid rgba(93,64,55,.16);
       border-radius:16px;
@@ -443,10 +442,11 @@
           </div>
         </div>
 
-        <div style="margin-top:12px">
-          <button class="btn btnPrimary" id="checkoutBtn" type="button" disabled>Envoyer la commande ✅</button>
-          <div id="toast" class="toast"></div>
+        <div style="margin-top:12px; display:flex; gap:10px;">
+          <button class="btn btnPrimary" id="checkoutBtn" type="button" disabled style="flex:1">Envoyer la commande ✅</button>
+          <button class="btn" id="printBtn" type="button" disabled style="max-width:180px">Imprimer reçu 🧾</button>
         </div>
+        <div id="toast" class="toast"></div>
       </div>
     </div>
 
@@ -478,8 +478,10 @@
    *********************/
   const state = {
     guestId: null,
-    products: [], // ✅ vient de Apps Script
-    productsById: new Map()
+    products: [],
+    productsById: new Map(),
+    lastOrderPayload: null,
+    lastOrderId: ""
   };
 
   /*********************
@@ -518,11 +520,18 @@
     else card.classList.remove("dim");
   }
 
+  function safeImgUrl(u){
+    const url = String(u||"").trim();
+    if(!url) return "";
+    if(/^https?:\/\//i.test(url)) return url;
+    if(url.startsWith("./")) return url;
+    if(url.startsWith("assets/")) return url;
+    if(!url.includes("/") && !url.includes("\\")) return "./" + url;
+    return "";
+  }
+
   /*********************
-   * ✅ QR MODAL (FIX)
-   * - textarea: résumé complet
-   * - QR: version courte (évite URL trop longue)
-   * - service QR plus tolérant
+   * QR MODAL
    *********************/
   function openQrModal(summaryText, qrText){
     const modal = document.getElementById("qrModal");
@@ -531,13 +540,12 @@
 
     ta.value = String(summaryText || "");
 
-    // QR = texte court (max ~400 chars pour rester stable partout)
-    const qrPayload = String(qrText || summaryText || "").slice(0, 400);
+    const payload = String(qrText || summaryText || "");
 
-    // ✅ plus stable que chart.googleapis.com (et supporte mieux les URLs)
+    // ✅ QR plus fiable que Google Charts
     img.src =
       "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=" +
-      encodeURIComponent(qrPayload);
+      encodeURIComponent(payload);
 
     modal.style.display = "block";
   }
@@ -553,36 +561,9 @@
       toast("Résumé copié ✅");
       setTimeout(clearToast, 1200);
     }catch(e){
-      // fallback (certains navigateurs bloquent clipboard sans HTTPS)
-      try{
-        const ta = document.getElementById("qrText");
-        ta.focus();
-        ta.select();
-        document.execCommand("copy");
-        toast("Résumé copié ✅");
-        setTimeout(clearToast, 1200);
-      }catch(_){
-        toast("Impossible de copier (navigateur).");
-        setTimeout(clearToast, 1400);
-      }
+      toast("Impossible de copier (navigateur).");
+      setTimeout(clearToast, 1400);
     }
-  }
-
-  function safeImgUrl(u){
-    const url = String(u||"").trim();
-    if(!url) return "";
-    if(/^https?:\/\//i.test(url)) return url;
-
-    // accepte ./fichier.png
-    if(url.startsWith("./")) return url;
-
-    // accepte assets/...
-    if(url.startsWith("assets/")) return url;
-
-    // ✅ accepte aussi "Cornet.png" (racine)
-    if(!url.includes("/") && !url.includes("\\")) return "./" + url;
-
-    return "";
   }
 
   /*********************
@@ -740,7 +721,7 @@
   }
 
   /*********************
-   * IMAGES (fallback local)
+   * IMAGES fallback (optionnel)
    *********************/
   const PRODUCT_IMAGES_FALLBACK = {
     "cornet-6-pieces": "./Cornet.png",
@@ -754,7 +735,7 @@
   function slugifyName(name){
     return String(name||"")
       .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // enlève accents
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/&/g, " ")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
@@ -777,6 +758,7 @@
     }
 
     const Stock = Number(p.Stock ?? p.stock ?? 0);
+
     return { ProductID, Nom, Prix, Description, Categorie, Image, Stock };
   }
 
@@ -788,9 +770,9 @@
         throw new Error("Réponse menu invalide");
       }
 
-      const products = r.products.map(normalizeProduct).filter(p => p.ProductID && p.Nom);
+      const products = r.products.map(normalizeProduct)
+        .filter(p => p.ProductID && p.Nom);
 
-      // ✅ ne garder que stock > 0
       state.products = products.filter(p => Number(p.Stock||0) > 0);
       state.productsById = new Map(state.products.map(p => [String(p.ProductID), p]));
 
@@ -910,6 +892,7 @@
 
     if(items.length === 0){
       $("cartItems").innerHTML = `<div class="muted">Panier vide</div>`;
+      $("printBtn").disabled = true;
       validateCheckoutButton();
       return;
     }
@@ -933,6 +916,7 @@
       `;
     }).join("");
 
+    $("printBtn").disabled = false;
     validateCheckoutButton();
   }
 
@@ -1056,12 +1040,174 @@
   }
 
   /*********************
+   * QR TEXT (COMPLET)
+   *********************/
+  function buildFullQrText(payload, savedOrderId){
+    const isDelivery = norm(payload.typeCommande) === "livraison";
+
+    const itemsLines = payload.items.map(it=>{
+      const sub = Number(it.Prix||0) * Number(it.Quantite||0);
+      return `${it.Nom} x${it.Quantite} = ${fmtHTG(sub)}`;
+    }).join("\n");
+
+    let txt =
+`BES FAST FOOD - COMMANDE
+ID: ${savedOrderId || ("LOCAL-" + Date.now())}
+
+Nom: ${payload.clientNom}
+Téléphone: ${payload.telephone}
+Type: ${payload.typeCommande}
+Paiement: ${payload.paymentMethod}
+
+--- PRODUITS ---
+${itemsLines}
+
+Sous-total: ${fmtHTG(payload.subTotal)}
+`;
+
+    if(isDelivery){
+      txt += `Frais livraison: ${fmtHTG(payload.deliveryFee || 0)}
+Zone: ${payload.deliveryZoneLabel || payload.deliveryZone || "-"}
+Adresse: ${payload.adresse || "-"}
+`;
+    }
+
+    txt += `
+TOTAL: ${fmtHTG(payload.total)}
+`;
+
+    if(payload.noteCommande){
+      txt += `\nNote: ${payload.noteCommande}\n`;
+    }
+
+    txt += `\nPreuve de paiement requise via WhatsApp.`;
+
+    return txt;
+  }
+
+  /*********************
+   * REÇU IMPRIMÉ (sans livraison => pas de frais/livreur)
+   *********************/
+  function buildReceiptHTML(payload, orderId){
+    const isDelivery = norm(payload.typeCommande) === "livraison";
+
+    const itemsHtml = payload.items.map(it=>{
+      const sub = Number(it.Prix||0) * Number(it.Quantite||0);
+      return `
+        <tr>
+          <td>${it.Nom}</td>
+          <td style="text-align:right">${it.Quantite}</td>
+          <td style="text-align:right">${fmtHTG(sub)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const deliveryHtml = isDelivery ? `
+      <tr><td colspan="3"><hr></td></tr>
+      <tr>
+        <td colspan="2"><b>Frais de livraison</b></td>
+        <td style="text-align:right"><b>${fmtHTG(payload.deliveryFee || 0)}</b></td>
+      </tr>
+      <tr>
+        <td colspan="3" class="small">
+          <b>Adresse :</b> ${payload.adresse || "-"}<br>
+          <b>Zone :</b> ${payload.deliveryZoneLabel || payload.deliveryZone || "-"}<br>
+          <b>Résumé livreur :</b> Remettre la commande + récupérer preuve de paiement.
+        </td>
+      </tr>
+    ` : "";
+
+    return `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Reçu</title>
+  <style>
+    body{ width:80mm; font-family:Arial,sans-serif; margin:0; color:#000; }
+    h1{text-align:center;font-size:16px;margin:0}
+    .small{font-size:12px}
+    table{ width:100%; border-collapse:collapse; font-size:12px }
+    td{ padding:3px 0; vertical-align:top }
+    hr{ border:none; border-top:1px dashed #000; margin:6px 0 }
+  </style>
+</head>
+<body>
+  <h1>BES FAST FOOD</h1>
+  <div class="small">
+    <b>ID:</b> ${orderId || "-"}<br>
+    <b>Nom:</b> ${payload.clientNom}<br>
+    <b>Tél:</b> ${payload.telephone}<br>
+    <b>Type:</b> ${payload.typeCommande}<br>
+    <b>Paiement:</b> ${payload.paymentMethod}<br>
+  </div>
+
+  <hr>
+
+  <table>
+    <tr>
+      <td><b>Produit</b></td>
+      <td style="text-align:right"><b>Qté</b></td>
+      <td style="text-align:right"><b>Montant</b></td>
+    </tr>
+    ${itemsHtml}
+
+    <tr><td colspan="3"><hr></td></tr>
+
+    <tr>
+      <td colspan="2"><b>Sous-total</b></td>
+      <td style="text-align:right"><b>${fmtHTG(payload.subTotal)}</b></td>
+    </tr>
+
+    ${deliveryHtml}
+
+    <tr><td colspan="3"><hr></td></tr>
+
+    <tr>
+      <td colspan="2"><b>Total</b></td>
+      <td style="text-align:right"><b>${fmtHTG(payload.total)}</b></td>
+    </tr>
+  </table>
+
+  <hr>
+  <div class="small" style="text-align:center">Merci ❤️</div>
+
+  <script>
+    window.onload = function(){ window.print(); };
+  </script>
+</body>
+</html>
+    `;
+  }
+
+  function printReceipt(){
+    const payload = state.lastOrderPayload;
+    if(!payload){
+      toast("Aucune commande à imprimer.");
+      setTimeout(clearToast, 1200);
+      return;
+    }
+    const html = buildReceiptHTML(payload, state.lastOrderId);
+
+    const w = window.open("", "_blank");
+    if(!w){
+      toast("Popup bloquée. Autorise les popups pour imprimer.");
+      setTimeout(clearToast, 1800);
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  /*********************
    * CHECKOUT => WhatsApp + Sheets + QR
    *********************/
   async function checkout(){
     try{
       hideErr(); clearToast();
-      $("checkoutBtn").disabled = true; // anti double clic
+      $("checkoutBtn").disabled = true;
 
       const cart = loadCart();
       const itemsFull = cartToItems(cart);
@@ -1138,30 +1284,16 @@
         toast("WhatsApp ouvert ✅ (Erreur Sheets)");
       }
 
-      // ✅ Résumé long (textarea)
-      const summaryLong =
-        "BES FAST FOOD | " +
-        "ID: " + (savedOrderId || ("LOCAL-" + Date.now())) + " | " +
-        "Nom: " + payload.clientNom + " | " +
-        "Tel: " + payload.telephone + " | " +
-        "Type: " + payload.typeCommande + " | " +
-        (norm(payload.typeCommande)==="livraison" ? ("Adr: " + (payload.adresse||"-") + " | ") : "") +
-        "Paiement: " + payload.paymentMethod + " | " +
-        "Total: " + fmtHTG(payload.total) + " | " +
-        "Items: " + payload.items.map(it => `${it.Nom}x${it.Quantite}`).join(", ");
+      // ✅ sauvegarde pour impression
+      state.lastOrderPayload = payload;
+      state.lastOrderId = savedOrderId || ("LOCAL-" + Date.now());
+      $("printBtn").disabled = false;
 
-      // ✅ QR court (évite image cassée)
-      const qrShort =
-        "BES|" +
-        "ID:" + (savedOrderId || ("LOCAL-" + Date.now())) + "|" +
-        "Tel:" + payload.telephone + "|" +
-        "Type:" + payload.typeCommande + "|" +
-        "Pay:" + payload.paymentMethod + "|" +
-        "Total:" + payload.total;
+      // ✅ QR complet
+      const qrFullText = buildFullQrText(payload, savedOrderId);
+      openQrModal(qrFullText, qrFullText);
 
-      openQrModal(summaryLong, qrShort);
-
-      // ✅ Reset TOUJOURS
+      // ✅ Reset
       clearCart();
       renderCart();
 
@@ -1195,6 +1327,7 @@
 
     $("refreshBtn").onclick = () => { sanitizeCartAgainstStock(); renderCart(); };
     $("checkoutBtn").onclick = checkout;
+    $("printBtn").onclick = printReceipt;
 
     $("typeCommande").onchange = ()=>{
       syncAddressVisibility();
@@ -1228,22 +1361,21 @@
     renderCart();
     validateCheckoutButton();
 
-    // ✅ charger le menu depuis Apps Script
     loadMenuFromServer();
   })();
 </script>
 
-<!-- ✅ Modal QR (juste avant </body>) -->
+<!-- ✅ MODAL QR (juste avant </body>) -->
 <div id="qrModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; padding:18px;">
   <div style="max-width:420px; margin:60px auto; background:#fff; border-radius:18px; padding:16px; border:1px solid rgba(0,0,0,.15);">
     <div style="font-weight:1000; font-size:18px; margin-bottom:6px;">✅ Commande envoyée</div>
-    <div style="color:#6b7280; font-size:13px; margin-bottom:12px;">Voici ton QR Code (résumé commande).</div>
+    <div style="color:#6b7280; font-size:13px; margin-bottom:12px;">Voici ton QR Code (infos complètes commande).</div>
 
     <div style="display:flex; justify-content:center; margin:12px 0;">
       <img id="qrImg" alt="QR Code" style="width:260px; height:260px; border-radius:14px; border:1px solid rgba(0,0,0,.12);">
     </div>
 
-    <textarea id="qrText" readonly style="width:100%; min-height:90px; font-size:12px;"></textarea>
+    <textarea id="qrText" readonly style="width:100%; min-height:140px; font-size:12px;"></textarea>
 
     <div style="display:flex; gap:10px; margin-top:12px;">
       <button type="button" class="btn" onclick="closeQrModal()">Fermer</button>
