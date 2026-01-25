@@ -197,6 +197,9 @@
         <button class="tab active" data-tab="orders">Commandes</button>
         <button class="tab" data-tab="products">Produits</button>
         <button class="tab" data-tab="place">Placer une commande</button>
+         <button class="tab" data-tab="closeDay">Clôture journée</button>
+          <button class="tab" data-tab="histTx">Historique transactions</button>
+          <button class="tab" data-tab="histRep">Historique rapports</button
       </div>
 
       <div class="row" style="flex:1;justify-content:flex-end">
@@ -455,6 +458,113 @@
           </div>
         </div>
       </section>
+      
+<!-- ✅ CLOSE DAY -->
+<section id="tab-closeDay" style="display:none">
+  <div class="grid">
+    <div class="card">
+      <div class="cardHead">
+        <b>Clôture de la journée (Preview)</b>
+        <div class="row">
+          <input id="cd_date" type="date" style="max-width:190px">
+          <input id="cd_opening" type="number" step="0.01" placeholder="Encaisse début (HTG)" style="max-width:220px">
+          <button class="btn warn" id="cd_previewBtn" type="button">Fermer la journée (Preview)</button>
+          <button class="btn good" id="cd_validateBtn" type="button" disabled>Valider (Final + PDF)</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="muted small">
+          Les commandes <b>Annuler</b> ne sont pas comptées comme ventes.
+        </div>
+        <div class="hr"></div>
+
+        <div id="cd_summary" class="muted">Aucun preview.</div>
+
+        <div class="hr"></div>
+
+        <b>Ventes par produit</b>
+        <div class="content" style="padding:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Produit</th>
+                <th>Qté</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="cd_prodTbody">
+              <tr><td colspan="3" class="muted">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="hr"></div>
+
+        <div id="cd_pdfBox" class="muted small" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ✅ HISTORIQUE TRANSACTIONS -->
+<section id="tab-histTx" style="display:none">
+  <div class="card">
+    <div class="cardHead">
+      <b>Historique des transactions</b>
+      <div class="row">
+        <input id="ht_date" type="date" style="max-width:190px">
+        <input id="ht_q" placeholder="Recherche: ID / Tel / Nom..." style="max-width:260px">
+        <button class="btn" id="ht_loadBtn" type="button">Rechercher</button>
+      </div>
+    </div>
+    <div class="content" style="padding:0">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>ID</th>
+            <th>Client</th>
+            <th>Paiement</th>
+            <th>Total</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody id="ht_tbody">
+          <tr><td colspan="6" class="muted">Aucun résultat.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ✅ HISTORIQUE RAPPORTS -->
+<section id="tab-histRep" style="display:none">
+  <div class="card">
+    <div class="cardHead">
+      <b>Historique des rapports (PDF)</b>
+      <div class="row">
+        <button class="btn" id="hr_loadBtn" type="button">Charger</button>
+      </div>
+    </div>
+    <div class="content" style="padding:0">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Créé</th>
+            <th>Encaisse début</th>
+            <th>Encaisse comptable</th>
+            <th>Total</th>
+            <th>PDF</th>
+          </tr>
+        </thead>
+        <tbody id="hr_tbody">
+          <tr><td colspan="6" class="muted">Aucun rapport.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>      
 
     </div>
   </div>
@@ -602,10 +712,16 @@ document.querySelectorAll(".tab").forEach(btn=>{
     $("tab-orders").style.display   = (tab==="orders") ? "block" : "none";
     $("tab-products").style.display = (tab==="products") ? "block" : "none";
     $("tab-place").style.display    = (tab==="place") ? "block" : "none";
+    $("tab-closeDay").style.display  = (tab==="closeDay") ? "block" : "none";
+    $("tab-histTx").style.display    = (tab==="histTx") ? "block" : "none";
+    $("tab-histRep").style.display   = (tab==="histRep") ? "block" : "none";
 
     if(tab==="orders") loadOrders();
     if(tab==="products") { loadCategories(); loadProducts(); }
-    if(tab==="place") loadMenuForPlace();
+    if(tab==="place") loadMenuForPlace();    
+    if(tab==="closeDay") initCloseDayUI();
+    if(tab==="histTx") loadTxHistory();
+    if(tab==="histRep") loadReportsHistory()
   });
 });
 
@@ -614,6 +730,9 @@ $("refreshBtn").addEventListener("click", ()=>{
   if(active==="orders") loadOrders();
   if(active==="products") { loadCategories(); loadProducts(); }
   if(active==="place") loadMenuForPlace();
+  if(active==="closeDay") initCloseDayUI();
+  if(active==="histTx") loadTxHistory();
+  if(active==="histRep") loadReportsHistory()
 });
 $("statusFilter").addEventListener("change", loadOrders);
 
@@ -1336,6 +1455,158 @@ $("placeOrderBtn").addEventListener("click", async ()=>{
   syncPlaceDeliveryUI();
   loadOrders();
 })();
+let _cd_lastPreview = null;
+
+function todayISO(){
+  const d = new Date();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function initCloseDayUI(){
+  if(!$("cd_date").value) $("cd_date").value = todayISO();
+  if($("cd_opening").value==="") $("cd_opening").value = "0";
+  $("cd_validateBtn").disabled = true;
+  $("cd_pdfBox").style.display="none";
+}
+
+async function closeDayPreview(){
+  try{
+    const k = $("adminKey").value.trim();
+    const date = $("cd_date").value.trim() || todayISO();
+    const openingCash = $("cd_opening").value;
+
+    const r = await apiJsonp("admin_closeDayPreview", { k, date, openingCash: String(openingCash||0) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_closeDayPreview");
+
+    _cd_lastPreview = r;
+    renderCloseDayPreview(r);
+    $("cd_validateBtn").disabled = false;
+    toast("Preview généré ✅");
+  }catch(e){
+    showErr(e.message || e);
+  }
+}
+
+function renderCloseDayPreview(pv){
+  const t = pv.totals || {};
+  const pay = (t.byPayment || {});
+  const lines = [
+    `<b>Date:</b> ${escapeHtml(pv.date || "")}`,
+    `<b>Nb ventes:</b> ${Number(pv.ordersCount||0)}`,
+    `<b>Ventes paiement:</b>`,
+    `Cash: <b>${fmtHTG(pay.Cash||0)}</b> • Crédit: <b>${fmtHTG(pay["Crédit"]||0)}</b>`,
+    `Moncash: <b>${fmtHTG(pay.Moncash||0)}</b> • Natcash: <b>${fmtHTG(pay.Natcash||0)}</b>`,
+    `<b>TOTAL:</b> <b>${fmtHTG(t.grandTotal||0)}</b>`,
+    `<hr class="hr">`,
+    `Encaisse début: <b>${fmtHTG(t.openingCash||0)}</b>`,
+    `Ventes Cash: <b>${fmtHTG(pay.Cash||0)}</b>`,
+    `<b>Encaisse comptable:</b> <b>${fmtHTG(t.accountingCash||0)}</b>`
+  ];
+  $("cd_summary").innerHTML = lines.join("<br>");
+
+  const list = Array.isArray(pv.byProduct) ? pv.byProduct : [];
+  $("cd_prodTbody").innerHTML = list.length
+    ? list.map(x=>`
+        <tr>
+          <td>${escapeHtml(x.name||"")}</td>
+          <td>${Number(x.qty||0)}</td>
+          <td><b>${fmtHTG(x.amount||0)}</b></td>
+        </tr>
+      `).join("") + `
+      <tr>
+        <td colspan="2"><b>TOTAL PRODUITS</b></td>
+        <td><b>${fmtHTG(t.itemsTotal||0)}</b></td>
+      </tr>
+    `
+    : `<tr><td colspan="3" class="muted">Aucun</td></tr>`;
+}
+
+async function validateCloseDay(){
+  try{
+    const k = $("adminKey").value.trim();
+    const date = $("cd_date").value.trim() || todayISO();
+    const openingCash = $("cd_opening").value;
+
+    const r = await apiJsonp("admin_validateCloseDay", { k, date, openingCash: String(openingCash||0) });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_validateCloseDay");
+
+    toast("Clôture validée ✅ (PDF + historique)");
+    $("cd_validateBtn").disabled = true;
+
+    if(r.pdfUrl){
+      $("cd_pdfBox").style.display="block";
+      $("cd_pdfBox").innerHTML = `PDF prêt: <a href="${r.pdfUrl}" target="_blank"><b>Ouvrir / Imprimer</b></a>`;
+    }
+
+    // Recharge commandes (elles ont été déplacées)
+    loadOrders();
+  }catch(e){
+    showErr(e.message || e);
+  }
+}
+
+$("cd_previewBtn").addEventListener("click", closeDayPreview);
+$("cd_validateBtn").addEventListener("click", validateCloseDay);
+async function loadTxHistory(){
+  try{
+    const k = $("adminKey").value.trim();
+    const date = $("ht_date").value.trim();
+    const q = $("ht_q").value.trim();
+
+    const r = await apiJsonp("admin_listTransactionsHistory", { k, date, q, limit:"200" });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listTransactionsHistory");
+
+    const list = Array.isArray(r.orders) ? r.orders : [];
+    $("ht_tbody").innerHTML = list.length ? list.map(o=>{
+      const st = String(o.Statut||"-");
+      return `
+        <tr>
+          <td>${escapeHtml(String(o.Date||"").slice(0,10) || String(o.DateHeure||""))}</td>
+          <td class="idCell" title="${escapeHtml(o.OrderID||"")}">${escapeHtml(o.OrderID||"")}</td>
+          <td><b>${escapeHtml(o.ClientNom||"")}</b><div class="muted">${escapeHtml(o.Telephone||"")}</div></td>
+          <td>${escapeHtml(o.PaymentMethod||"")}</td>
+          <td><b>${fmtHTG(o.Total||0)}</b></td>
+          <td>${escapeHtml(st)}</td>
+        </tr>
+      `;
+    }).join("") : `<tr><td colspan="6" class="muted">Aucun résultat.</td></tr>`;
+  }catch(e){
+    showErr(e.message || e);
+  }
+}
+$("ht_loadBtn").addEventListener("click", loadTxHistory);
+
+async function loadReportsHistory(){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_listReportsHistory", { k, limit:"120" });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listReportsHistory");
+
+    const list = Array.isArray(r.reports) ? r.reports : [];
+    $("hr_tbody").innerHTML = list.length ? list.map(x=>{
+      const pdf = String(x.PdfUrl||"").trim();
+      const created = String(x.CreatedAt||"");
+      return `
+        <tr>
+          <td>${escapeHtml(x.Date||"")}</td>
+          <td class="muted">${escapeHtml(created)}</td>
+          <td>${fmtHTG(x.OpeningCash||0)}</td>
+          <td><b>${fmtHTG(x.AccountingCash||0)}</b></td>
+          <td><b>${fmtHTG(x.GrandTotal||0)}</b></td>
+          <td>${pdf ? `<a href="${pdf}" target="_blank"><b>Ouvrir</b></a>` : `<span class="muted">—</span>`}</td>
+        </tr>
+      `;
+    }).join("") : `<tr><td colspan="6" class="muted">Aucun rapport.</td></tr>`;
+
+  }catch(e){
+    showErr(e.message || e);
+  }
+}
+$("hr_loadBtn").addEventListener("click", loadReportsHistory);
+
+  
 </script>
 </body>
 </html>
