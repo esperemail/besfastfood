@@ -1016,7 +1016,25 @@ window.setStatus = async function(orderId, status){
     throw e;
   }
 };
-  
+ // ✅ Annuler une commande (fonction manquante)
+window.cancelOrder = async function(orderId){
+  try{
+    const oid = String(orderId || "").trim();
+    if(!oid) throw new Error("OrderID manquant");
+
+    if(!confirm("Annuler cette commande ?")) return;
+
+    await setStatus(oid, "Annulée");
+    toast("Commande annulée ✅");
+
+    // refresh tables
+    loadOrders();
+    loadPendingOrders();
+  }catch(e){
+    showErr(e.message || e);
+  }
+};
+ 
 function switchTab(tab){
   document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
   document.querySelector(`.tab[data-tab="${tab}"]`)?.classList.add("active");
@@ -1809,10 +1827,33 @@ async function closeDayPreview(){
     renderCloseDayPreview(r);
 
     // ✅ blocage si non livrées
-    const und = Number(r.undeliveredCount || 0);
-    $("cd_blockMsg").style.display = und > 0 ? "inline" : "none";
-    $("cd_validateBtn").disabled = und > 0;
+   // ✅ blocage si non livrées (avec fallback local)
+let und = Number(r.undeliveredCount || 0);
 
+// Fallback si le backend renvoie la liste des commandes
+const list = Array.isArray(r.orders) ? r.orders
+  : (Array.isArray(r.openOrders) ? r.openOrders : null);
+
+function normStatus(s){
+  s = String(s||"").trim().toLowerCase();
+  try{
+    s = s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); // enlève accents
+  }catch(_e){}
+  return s;
+}
+
+if(list){
+  und = list.filter(o=>{
+    const st = normStatus(o.Statut || o.status);
+    if(!st) return false;
+    if(st.includes("annul")) return false;
+    if(st.includes("attente")) return false;
+    return !st.includes("livr");
+  }).length;
+}
+
+$("cd_blockMsg").style.display = und > 0 ? "inline" : "none";
+$("cd_validateBtn").disabled = und > 0;
     toast("Preview généré ✅");
   }catch(e){
     showErr(e.message || e);
@@ -1916,7 +1957,10 @@ async function loadTxHistory(){
   const endDate = $("ht_end").value.trim();
     const q = $("ht_q").value.trim();
 
-    const r = await apiJsonp("admin_listTransactionsHistory", { k, date, q, limit:"200" });
+   const r = await apiJsonp("admin_listTransactionsHistory", {
+  k, startDate, endDate, q, limit:"200"
+});
+
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listTransactionsHistory");
 
     const list = Array.isArray(r.orders) ? r.orders : [];
@@ -1949,7 +1993,8 @@ async function loadReportsHistory(){
     const k = $("adminKey").value.trim();
     const startDate = $("hr_start").value.trim();
     const endDate = $("hr_end").value.trim();
-    const r = await apiJsonp("admin_listReportsHistory", { k, limit:"120" });
+   const r = await apiJsonp("admin_listReportsHistory", { k, startDate, endDate, limit:"120" });
+
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listReportsHistory");
 
     const list = Array.isArray(r.reports) ? r.reports : [];
