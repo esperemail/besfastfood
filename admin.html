@@ -822,12 +822,14 @@ async function loadPendingOrders(){
     // Option 2 (mieux): si tu veux utiliser ton endpoint dédié:
     // const r = await apiJsonp("admin_listPendingOrders", { k, limit:"200" });
 
+    async function loadPendingOrders(){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_listOrders", { k, limit:"200", status:"En attente" });
     if(!r || !r.ok) throw new Error(r?.error || "Erreur chargement En attente");
-    const list = Array.isArray(r.orders) ? r.orders : [];
-    lastPendingCache = list;
-    renderPendingTable(list);
 
     const list = Array.isArray(r.orders) ? r.orders : [];
+    lastPendingCache = list;
     renderPendingTable(list);
 
   }catch(e){
@@ -835,6 +837,7 @@ async function loadPendingOrders(){
     $("pendingTbody").innerHTML = `<tr><td colspan="5" class="muted">Erreur.</td></tr>`;
   }
 }
+
 
 function renderPendingTable(list){
   $("pendingTbody").innerHTML = list.length
@@ -1123,6 +1126,18 @@ window.readyDeliver = async function(order){
     toast("Statut mis à jour ✅");
     loadOrders();
     openWhatsAppToClient(order.Telephone, "Votre commande est prête à livrer. Merci d'avoir choisi Bes Fast Food!");
+  }catch(e){
+    showErr(e.message || e);
+  }
+};
+window.readyConsume = async function(order){
+  try{
+    const oid = String(order.OrderID||"").trim();
+    if(!oid) throw new Error("OrderID manquant");
+    await setStatus(oid, "Prêt à consommer");
+    toast("Statut mis à jour ✅");
+    loadOrders();
+    openWhatsAppToClient(order.Telephone, "Votre commande est prête à consommer. Merci d'avoir choisi Bes Fast Food!");
   }catch(e){
     showErr(e.message || e);
   }
