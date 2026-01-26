@@ -773,6 +773,8 @@ $("hideDelivered").addEventListener("change", ()=> renderOrdersTable(lastOrdersC
  ***************/
 let prevOrderIds = new Set();
 let lastOrdersCache = [];
+let lastPendingCache = [];
+ 
 
 function rowClassForStatus(status){
   const st = norm(status);
@@ -821,6 +823,9 @@ async function loadPendingOrders(){
     // const r = await apiJsonp("admin_listPendingOrders", { k, limit:"200" });
 
     if(!r || !r.ok) throw new Error(r?.error || "Erreur chargement En attente");
+    const list = Array.isArray(r.orders) ? r.orders : [];
+    lastPendingCache = list;
+    renderPendingTable(list);
 
     const list = Array.isArray(r.orders) ? r.orders : [];
     renderPendingTable(list);
@@ -973,59 +978,125 @@ window.setStatus = async function(orderId, status){
     throw e;
   }
 };
-// ✅ Modifier: ouvre l’onglet "Placer une commande" et pré-remplit le nom/tel
-// (si tu as un endpoint qui renvoie le détail d'une commande, on pourra le faire complet)
+  
+function switchTab(tab){
+  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+  document.querySelector(`.tab[data-tab="${tab}"]`)?.classList.add("active");
+
+  $("tab-orders").style.display   = (tab==="orders") ? "block" : "none";
+  $("tab-pending").style.display  = (tab==="pending") ? "block" : "none";
+  $("tab-products").style.display = (tab==="products") ? "block" : "none";
+  $("tab-place").style.display    = (tab==="place") ? "block" : "none";
+  $("tab-closeDay").style.display = (tab==="closeDay") ? "block" : "none";
+  $("tab-histTx").style.display   = (tab==="histTx") ? "block" : "none";
+  $("tab-histRep").style.display  = (tab==="histRep") ? "block" : "none";
+}
+
 window.editPending = async function(orderId){
   try{
-    toast("Mode modification (simple) : " + orderId);
+    // retrouve la ligne
+    const o = lastPendingCache.find(x=>String(x.OrderID||"").trim()===String(orderId).trim());
 
-    // 👉 Option simple: juste basculer vers l’onglet "Placer une commande"
-    document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
-    document.querySelector('.tab[data-tab="place"]').classList.add("active");
+    // Va sur Placer une commande
+    switchTab("place");
 
-    $("tab-orders").style.display   = "none";
-    $("tab-pending").style.display  = "none";
-    $("tab-products").style.display = "none";
-    $("tab-place").style.display    = "block";
-    $("tab-closeDay").style.display = "none";
-    $("tab-histTx").style.display   = "none";
-    $("tab-histRep").style.display  = "none";
-
-    // Si tu veux: charger menu pour pouvoir re-créer la commande
+    // Charge le menu (pour pouvoir remplir le panier)
     await loadMenuForPlace();
 
-    // Ici, sans endpoint "getPendingOrder", je ne peux pas pré-remplir items/infos.
-    // On peut l'ajouter côté Apps Script pour un vrai edit.
+    // Pré-remplissage minimal
+    if(o){
+      $("p_name").value  = String(o.ClientNom || "");
+      $("p_phone").value = String(o.Telephone || "");
+
+      // si ton backend renvoie ces champs (sinon ça ne casse pas)
+      if(o.TypeCommande) $("p_type").value = o.TypeCommande;
+      if(o.NoteCommande) $("p_note").value = o.NoteCommande;
+
+      // Adresse si existe (ex: "Zone — adresse")
+      if(o.Adresse){
+        const adr = String(o.Adresse);
+        // split "Zone — Adresse"
+        const parts = adr.split("—").map(s=>s.trim());
+        if(parts.length>=2){
+          $("p_zone").value = parts[0];
+          $("p_addr").value = parts.slice(1).join(" — ");
+        }else{
+          $("p_addr").value = adr;
+        }
+      }
+
+      // ⚠️ Si tu n’as pas o.items, on ne peut pas remplir le panier
+      if(Array.isArray(o.items) && o.items.length){
+        // reset panier
+        for(const k of Object.keys(placeCart)) delete placeCart[k];
+        o.items.forEach(it=>{
+          const pid = String(it.ProductID);
+          const q = Number(it.Quantite||0);
+          if(pid && q>0) placeCart[pid] = q;
+        });
+      }else{
+        toast("⚠️ Items non disponibles: ajoute un endpoint admin_getOrder pour un vrai Modifier.");
+      }
+    }else{
+      toast("Commande introuvable dans le cache (recharge En attente).");
+    }
+
+    syncPlaceDeliveryUI();
+    renderPlaceCart();
+    validatePlaceOrderBtn();
+
   }catch(e){
     showErr(e.message || e);
   }
 };
 
-// ✅ Finaliser: met juste le statut (adapte au statut final que tu veux)
+function askPaymentMethod(defaultVal=""){
+  const opts = ["Cash","Moncash","Natcash","Crédit"];
+  const msg = "Méthode de paiement ?\n" + opts.map((x,i)=>`${i+1}) ${x}`).join("\n");
+  const v = prompt(msg, defaultVal ? `Ex: ${defaultVal}` : "Tape: Cash / Moncash / Natcash / Crédit");
+  const m = String(v||"").trim();
+  if(!m) return null;
+
+  // normalise
+  const found = opts.find(x=>x.toLowerCase()===m.toLowerCase());
+  return found || m; // accepte texte exact si tu préfères
+}
+
 window.finalizePending = async function(orderId){
   try{
-    if(!confirm("Finaliser cette commande ?")) return;
+    // retrouver commande pour préremplir défaut paiement
+    const o = lastPendingCache.find(x=>String(x.OrderID||"").trim()===String(orderId).trim());
+    const existingPay = o?.PaymentMethod || o?.paymentMethod || "";
 
-    // Choisis le statut final que tu veux au moment où elle sort de "En attente"
-    await setStatus(orderId, "Reçue");
-    toast("Commande finalisée ✅");
+    const pay = askPaymentMethod(existingPay);
+    if(!pay){
+      toast("Finalisation annulée (paiement requis).");
+      return;
+    }
 
-    // Recharge la liste
+    // ✅ Idéal: appeler un endpoint qui enregistre le paiement + change statut
+    // 👉 On tente d’abord un endpoint s’il existe côté Apps Script :
+    const k = $("adminKey").value.trim();
+    let ok = false;
+
+    try{
+      const r = await apiJsonp("admin_finalizePendingOrder", { k, orderId, paymentMethod: pay });
+      if(r && r.ok) ok = true;
+    }catch(_e){
+      // endpoint pas là -> fallback
+    }
+
+    if(!ok){
+      // fallback minimal: juste changer statut (mais le paiement ne sera pas enregistré côté serveur)
+      await setStatus(orderId, "Reçue");
+      toast("Finalisé ✅ (paiement demandé, mais pas enregistré côté serveur)");
+    }else{
+      toast("Finalisé ✅");
+    }
+
     loadPendingOrders();
     loadOrders();
-  }catch(e){
-    showErr(e.message || e);
-  }
-};
 
-window.readyConsume = async function(order){
-  try{
-    const oid = String(order.OrderID||"").trim();
-    if(!oid) throw new Error("OrderID manquant");
-    await setStatus(oid, "Prêt à consommer");
-    toast("Statut mis à jour ✅");
-    loadOrders();
-    openWhatsAppToClient(order.Telephone, "Votre commande est prête à consommer. Merci d'avoir choisi Bes Fast Food!");
   }catch(e){
     showErr(e.message || e);
   }
