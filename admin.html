@@ -195,6 +195,7 @@
     <div class="cardHead">
       <div class="tabs">
         <button class="tab active" data-tab="orders">Commandes</button>
+        <button class="tab" data-tab="pending">En attente</button>
         <button class="tab" data-tab="products">Produits</button>
         <button class="tab" data-tab="place">Placer une commande</button>
          <button class="tab" data-tab="closeDay">Clôture journée</button>
@@ -259,6 +260,28 @@
           Les commandes <b>Livré</b> descendent automatiquement en bas (ou masquées si filtre activé).
         </div>
       </section>
+      
+    <!-- Pending -->   
+<section id="tab-pending" style="display:none">
+  <div class="card">
+    <div class="cardHead">
+      <b>Commandes en attente</b>
+      <button class="btn" type="button" id="pendingReloadBtn">Recharger</button>
+    </div>
+    <div class="content" style="padding:0">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>ID</th><th>Client</th><th>Total</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pendingTbody">
+          <tr><td colspan="5" class="muted">Chargement…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
       <!-- PRODUCTS -->
       <section id="tab-products" style="display:none">
@@ -712,6 +735,7 @@ document.querySelectorAll(".tab").forEach(btn=>{
     const tab = btn.dataset.tab;
 
     $("tab-orders").style.display   = (tab==="orders") ? "block" : "none";
+    $("tab-pending").style.display = (tab==="pending") ? "block" : "none";
     $("tab-products").style.display = (tab==="products") ? "block" : "none";
     $("tab-place").style.display    = (tab==="place") ? "block" : "none";
     $("tab-closeDay").style.display  = (tab==="closeDay") ? "block" : "none";
@@ -719,6 +743,7 @@ document.querySelectorAll(".tab").forEach(btn=>{
     $("tab-histRep").style.display   = (tab==="histRep") ? "block" : "none";
 
     if(tab==="orders") loadOrders();
+    if(tab==="pending") loadPendingOrders();
     if(tab==="products") { loadCategories(); loadProducts(); }
     if(tab==="place") loadMenuForPlace();    
     if(tab==="closeDay") initCloseDayUI();
@@ -812,7 +837,64 @@ function renderOrdersTable(ordersRaw){
     prevOrderIds = new Set();
     return;
   }
+/* ================================
+ * 🔶 PENDING ORDERS (En attente)
+ * ================================ */
 
+async function loadPendingOrders(){
+  try{
+    const k = $("adminKey").value.trim();
+    const r = await apiJsonp("admin_listOrders", {
+      k,
+      limit: "200",
+      status: "En attente"
+    });
+    if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listOrders");
+
+    const list = Array.isArray(r.orders) ? r.orders : [];
+    renderPendingTable(list);
+
+  }catch(e){
+    showErr(e.message || e);
+    $("pendingTbody").innerHTML =
+      `<tr><td colspan="5" class="muted">Erreur.</td></tr>`;
+  }
+}
+
+function renderPendingTable(list){
+  $("pendingTbody").innerHTML = list.length
+    ? list.map(o=>{
+        const oid = String(o.OrderID||"").trim();
+        return `
+          <tr>
+            <td>${escapeHtml(o.DateHeure||"")}</td>
+            <td class="idCell" title="${escapeHtml(oid)}">${escapeHtml(oid)}</td>
+            <td>
+              <b>${escapeHtml(o.ClientNom||"")}</b>
+              <div class="muted">${escapeHtml(o.Telephone||"")}</div>
+            </td>
+            <td><b>${fmtHTG(o.Total||0)}</b></td>
+            <td>
+              <div class="actions">
+                <button class="btn warn" type="button"
+                  onclick="editPending('${oid.replace(/'/g,"")}')">
+                  Modifier
+                </button>
+                <button class="btn good" type="button"
+                  onclick="finalizePending('${oid.replace(/'/g,"")}')">
+                  Finaliser
+                </button>
+                <button class="btn bad" type="button"
+                  onclick="setStatus('${oid.replace(/'/g,"")}', 'Annulée')">
+                  Annuler
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("")
+    : `<tr><td colspan="5" class="muted">Aucune en attente.</td></tr>`;
+}
   const currentIds = new Set(orders.map(o=>String(o.OrderID||"").trim()).filter(Boolean));
 
   tb.innerHTML = orders.map(o=>{
