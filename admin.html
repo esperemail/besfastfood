@@ -1010,28 +1010,29 @@ function switchTab(tab){
 
 window.editPending = async function(orderId){
   try{
-    // retrouve la ligne
+    // ✅ RESET avant de charger une autre commande
+    for(const k of Object.keys(placeCart)) delete placeCart[k];
+    $("p_name").value = "";
+    $("p_phone").value = "";
+    $("p_type").value = "Sur place";
+    $("p_pay").value = "";
+    $("p_note").value = "";
+    $("p_zone").value = "";
+    $("p_addr").value = "";
+
     const o = lastPendingCache.find(x=>String(x.OrderID||"").trim()===String(orderId).trim());
 
-    // Va sur Placer une commande
     switchTab("place");
-
-    // Charge le menu (pour pouvoir remplir le panier)
     await loadMenuForPlace();
 
-    // Pré-remplissage minimal
     if(o){
       $("p_name").value  = String(o.ClientNom || "");
       $("p_phone").value = String(o.Telephone || "");
-
-      // si ton backend renvoie ces champs (sinon ça ne casse pas)
       if(o.TypeCommande) $("p_type").value = o.TypeCommande;
       if(o.NoteCommande) $("p_note").value = o.NoteCommande;
 
-      // Adresse si existe (ex: "Zone — adresse")
       if(o.Adresse){
         const adr = String(o.Adresse);
-        // split "Zone — Adresse"
         const parts = adr.split("—").map(s=>s.trim());
         if(parts.length>=2){
           $("p_zone").value = parts[0];
@@ -1041,20 +1042,13 @@ window.editPending = async function(orderId){
         }
       }
 
-      // ⚠️ Si tu n’as pas o.items, on ne peut pas remplir le panier
       if(Array.isArray(o.items) && o.items.length){
-        // reset panier
-        for(const k of Object.keys(placeCart)) delete placeCart[k];
         o.items.forEach(it=>{
           const pid = String(it.ProductID);
           const q = Number(it.Quantite||0);
           if(pid && q>0) placeCart[pid] = q;
         });
-      }else{
-        toast("⚠️ Items non disponibles: ajoute un endpoint admin_getOrder pour un vrai Modifier.");
       }
-    }else{
-      toast("Commande introuvable dans le cache (recharge En attente).");
     }
 
     syncPlaceDeliveryUI();
@@ -1065,6 +1059,7 @@ window.editPending = async function(orderId){
     showErr(e.message || e);
   }
 };
+
 
 function askPaymentMethod(defaultVal=""){
   const opts = ["Cash","Moncash","Natcash","Crédit"];
@@ -1913,8 +1908,10 @@ async function loadReportsHistory(){
 }
 $("hr_loadBtn").addEventListener("click", loadReportsHistory);
 
- 
-  <!-- ✅ Modal choix paiement (Finaliser) -->
+  
+</script>
+
+ <!-- ✅ Modal choix paiement (Finaliser) -->
 <div id="payModal" style="
   position:fixed; inset:0; display:none; z-index:9999;
   background:rgba(0,0,0,.6); backdrop-filter: blur(6px);
@@ -1941,8 +1938,6 @@ $("hr_loadBtn").addEventListener("click", loadReportsHistory);
     </div>
   </div>
 </div>
-  
-</script>
   
  </body>
 </html>
