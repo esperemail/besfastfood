@@ -715,9 +715,12 @@ async function confirmPayModal(){
     showErr("Choisis une méthode de paiement.");
     return;
   }
-  closePayModal();
-  await finalizePendingWithPay(_pendingFinalizeOrderId, pay);
+
+  const oid = _pendingFinalizeOrderId;   // ✅ garde l’ID
+  closePayModal();                      // ✅ maintenant on peut fermer
+  await finalizePendingWithPay(oid, pay);
 }
+
 
   
 /***************
@@ -798,6 +801,7 @@ $("hideDelivered").addEventListener("change", ()=> renderOrdersTable(lastOrdersC
 let prevOrderIds = new Set();
 let lastOrdersCache = [];
 let lastPendingCache = [];
+let _editingPendingId = null;
  
 
 function rowClassForStatus(status){
@@ -1010,6 +1014,7 @@ function switchTab(tab){
 
 window.editPending = async function(orderId){
   try{
+    _editingPendingId = String(orderId || "").trim();
     // ✅ RESET avant de charger une autre commande
     for(const k of Object.keys(placeCart)) delete placeCart[k];
     $("p_name").value = "";
@@ -1619,11 +1624,35 @@ $("placePendingBtn").addEventListener("click", async ()=>{
       deliveryFee: isLiv ? fee : 0,
       totalOverride: total
     };
-
+    
+  // ✅ Si on est en train de modifier une commande en attente,
+  // on annule l’ancienne pour éviter les doublons
+  if(_editingPendingId){
+  await setStatus(_editingPendingId, "Annulée");
+}
     const r = await apiJsonp("admin_createPendingOrder", { k, payload: JSON.stringify(payload) });
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_createPendingOrder");
 
+    const r = await apiJsonp("admin_createPendingOrder", { k, payload: JSON.stringify(payload) });
+if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_createPendingOrder");
+
+// ✅ seulement si on était en mode "modifier"
+if(_editingPendingId){
+  await setStatus(_editingPendingId, "Annulée"); // annule l'ancienne
+}
+_editingPendingId = null; // on sort du mode édition
+
+toast("Commande mise en attente ✅ ID: " + (r.orderId || "OK"));
+loadPendingOrders();
+switchTab("pending");
+
+
     toast("Commande mise en attente ✅ ID: " + (r.orderId || "OK"));
+    
+    _editingPendingId = null;  // ✅ reset mode édition
+    loadPendingOrders();       // ✅ refresh liste attente
+    switchTab("pending");      // ✅ revenir sur l’onglet attente (optionnel)
+
 
     // reset panier / champs
     for(const k2 of Object.keys(placeCart)) delete placeCart[k2];
