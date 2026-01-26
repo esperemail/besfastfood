@@ -491,10 +491,16 @@
       <div class="cardHead">
         <b>Clôture de la journée (Preview)</b>
         <div class="row">
-          <input id="cd_date" type="date" style="max-width:190px">
+         <input id="cd_start" type="date" style="max-width:190px">
+          <input id="cd_end" type="date" style="max-width:190px">
           <input id="cd_opening" type="number" step="0.01" placeholder="Encaisse début (HTG)" style="max-width:220px">
           <button class="btn warn" id="cd_previewBtn" type="button">Fermer la journée (Preview)</button>
           <button class="btn good" id="cd_validateBtn" type="button" disabled>Valider (Final + PDF)</button>
+          <button class="btn good" id="cd_validateBtn" type="button" disabled>Valider (Final + PDF)</button>
+        <span id="cd_blockMsg" style="display:none;font-weight:900;color:#ff6b6b;margin-left:10px">
+        Commande non livrée restée ouverte
+        </span>
+
         </div>
       </div>
       <div class="content">
@@ -537,7 +543,8 @@
     <div class="cardHead">
       <b>Historique des transactions</b>
       <div class="row">
-        <input id="ht_date" type="date" style="max-width:190px">
+        <input id="ht_start" type="date" style="max-width:190px">
+        <input id="ht_end" type="date" style="max-width:190px">
         <input id="ht_q" placeholder="Recherche: ID / Tel / Nom..." style="max-width:260px">
         <button class="btn" id="ht_loadBtn" type="button">Rechercher</button>
       </div>
@@ -569,6 +576,9 @@
       <b>Historique des rapports (PDF)</b>
       <div class="row">
         <button class="btn" id="hr_loadBtn" type="button">Charger</button>
+        <input id="hr_start" type="date" style="max-width:190px">
+      <input id="hr_end" type="date" style="max-width:190px">
+      <button class="btn" id="hr_loadBtn" type="button">Charger</button>
       </div>
     </div>
     <div class="content" style="padding:0">
@@ -831,12 +841,17 @@ function filterOrders(list){
   const hideDel = !!$("hideDelivered").checked;
 
   return (list||[]).filter(o=>{
-    if(norm(o.Statut).includes("en attente")) return false;
-    if(hideDel && norm(o.Statut).includes("livr")) return false;
+    const st = norm(o.Statut||"");
+
+    if(st.includes("en attente")) return false;
+    if(st.includes("annul")) return false;          // ✅ cache les annulées
+    if(hideDel && st.includes("livr")) return false;
     if(q && !String(o.OrderID||"").includes(q)) return false;
+
     return true;
   });
 }
+
 /***********************
  * 🔶 PENDING ORDERS (En attente)
  ***********************/
@@ -1180,15 +1195,17 @@ window.printPOS80 = function(order){
 <title>POS 80mm</title>
 <style>
 @page { size: 80mm auto; margin: 6mm; }
-body{
-  width:80mm;
+body{ margin:0; padding:0; }
+.sheet{
+  width: 68mm;          /* 80mm - 6mm - 6mm */
+  margin: 0 auto;  
   font-family: Arial, sans-serif;
   margin:0;
   color:#000;
-  font-size:14px;
+  font-size:16px;
 }
-h1{ text-align:center; font-size:20px; margin:0 0 4px 0; }
-.small{ font-size:13px; }
+h1{ text-align:center; font-size:22px; margin:0 0 4px 0; }
+.small{ font-size:15px; }
 .hr{ border-top:1px dashed #000; margin:10px 0; }
 table{ width:100%; border-collapse:collapse; font-size:14px; }
 td{ padding:5px 0; }
@@ -1760,24 +1777,29 @@ function todayISO(){
 }
 
 function initCloseDayUI(){
-  if(!$("cd_date").value) $("cd_date").value = todayISO();
+  if(!$("cd_start").value) $("cd_start").value = todayISO();
+  if(!$("cd_end").value) $("cd_end").value = todayISO();
   if($("cd_opening").value==="") $("cd_opening").value = "0";
   $("cd_validateBtn").disabled = true;
   $("cd_pdfBox").style.display="none";
+  if($("cd_blockMsg")) $("cd_blockMsg").style.display="none";
 }
+
 
 async function closeDayPreview(){
   try{
-    const k = $("adminKey").value.trim();
-    const date = $("cd_date").value.trim() || todayISO();
-    const openingCash = $("cd_opening").value;
+   const startDate = $("cd_start").value.trim() || todayISO();
+  const endDate = $("cd_end").value.trim() || startDate;
 
-    const r = await apiJsonp("admin_closeDayPreview", { k, date, openingCash: String(openingCash||0) });
+const r = await apiJsonp("admin_closeDayPreview", { k, startDate, endDate, openingCash: String(openingCash||0) });
+
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_closeDayPreview");
 
     _cd_lastPreview = r;
     renderCloseDayPreview(r);
-    $("cd_validateBtn").disabled = false;
+   const und = Number(r.undeliveredCount || 0);
+    $("cd_blockMsg").style.display = und > 0 ? "inline" : "none";
+    $("cd_validateBtn").disabled = und > 0;
     toast("Preview généré ✅");
   }catch(e){
     showErr(e.message || e);
@@ -1836,10 +1858,11 @@ function renderCloseDayPreview(pv){
 async function validateCloseDay(){
   try{
     const k = $("adminKey").value.trim();
-    const date = $("cd_date").value.trim() || todayISO();
-    const openingCash = $("cd_opening").value;
+    const startDate = $("cd_start").value.trim() || todayISO();
+const endDate = $("cd_end").value.trim() || startDate;
 
-    const r = await apiJsonp("admin_validateCloseDay", { k, date, openingCash: String(openingCash||0) });
+const r = await apiJsonp("admin_validateCloseDay", { k, startDate, endDate, openingCash: String(openingCash||0) });
+
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_validateCloseDay");
 
     toast("Clôture validée ✅ (PDF + historique)");
@@ -1862,7 +1885,8 @@ $("cd_validateBtn").addEventListener("click", validateCloseDay);
 async function loadTxHistory(){
   try{
     const k = $("adminKey").value.trim();
-    const date = $("ht_date").value.trim();
+   const startDate = $("ht_start").value.trim();
+  const endDate = $("ht_end").value.trim();
     const q = $("ht_q").value.trim();
 
     const r = await apiJsonp("admin_listTransactionsHistory", { k, date, q, limit:"200" });
@@ -1896,6 +1920,8 @@ $("ht_loadBtn").addEventListener("click", loadTxHistory);
 async function loadReportsHistory(){
   try{
     const k = $("adminKey").value.trim();
+    const startDate = $("hr_start").value.trim();
+    const endDate = $("hr_end").value.trim();
     const r = await apiJsonp("admin_listReportsHistory", { k, limit:"120" });
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listReportsHistory");
 
