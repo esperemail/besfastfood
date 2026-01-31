@@ -1838,6 +1838,36 @@ function initCloseDayUI(){
   if($("cd_blockMsg")) $("cd_blockMsg").style.display="none";
 }
 
+  function normStatus2(s){
+  return String(s||"").toLowerCase().trim();
+}
+
+// DateHeure peut être ISO "2026-01-28T01:45:29.770Z" ou texte.
+// On retourne un timestamp ms fiable.
+function parseOrderDateMs(o){
+  const raw = o?.DateHeure || o?.Date || o?.createdAt || o?.CreatedAt || "";
+  if(!raw) return NaN;
+
+  // ISO Z
+  const t1 = Date.parse(raw);
+  if(!Number.isNaN(t1)) return t1;
+
+  // fallback: tente "YYYY-MM-DD HH:mm:ss"
+  const s = String(raw).replace(" ", "T");
+  const t2 = Date.parse(s);
+  return t2;
+}
+
+// startDate/endDate sont des <input type="date"> => "YYYY-MM-DD"
+// Inclusif sur la fin de journée.
+function inDateRangeMs(t, startDate, endDate){
+  if(!Number.isFinite(t)) return false;
+
+  const s = new Date(startDate + "T00:00:00");
+  const e = new Date(endDate   + "T23:59:59.999");
+  return t >= s.getTime() && t <= e.getTime();
+}
+
 
 async function closeDayPreview(){
   try{
@@ -1884,7 +1914,16 @@ async function closeDayPreview(){
         pm.toLowerCase()==="natcash" ? "Natcash" :
         (pm.toLowerCase()==="credit" || pm.toLowerCase()==="crédit") ? "Crédit" :
         null;
+let totalDeliveryFees = 0;
 
+for(const o of sold){
+  const deliveryFee = Number(o.DeliveryFee || 0);
+  totalDeliveryFees += deliveryFee;
+
+  // ... ton code items
+}
+
+      
       if(key) byPayment[key] = Number(byPayment[key]||0) + total;
 
       const items = Array.isArray(o.items) ? o.items : [];
@@ -1924,6 +1963,7 @@ async function closeDayPreview(){
         byPayment,
         grandTotal,
         accountingCash
+        totalDeliveryFees
       },
       byProduct,
       // utile si tu veux debug/afficher la liste
@@ -1976,24 +2016,38 @@ function renderCloseDayPreview(pv){
     `<b>Encaisse comptable:</b> <b>${fmtHTG(t.accountingCash||0)}</b>`
   ];
   $("cd_summary").innerHTML = undMsg + lines.join("<br>");
+  lines.splice(6, 0, `Frais livraison: <b>${fmtHTG(t.totalDeliveryFees||0)}</b>`);
 
-  const list = Array.isArray(pv.byProduct) ? pv.byProduct : [];
-  const itemsTotalLocal = list.reduce((s,x)=> s + Number(x.amount||0), 0);
-  $("cd_prodTbody").innerHTML = list.length
-    ? list.map(x=>`
-        <tr>
-          <td>${escapeHtml(x.name||"")}</td>
-          <td>${Number(x.qty||0)}</td>
-          <td><b>${fmtHTG(x.amount||0)}</b></td>
-        </tr>
-      `).join("") + `
-      <tr>
-        <td colspan="2"><b>TOTAL PRODUITS</b></td>
-        <td><b>${fmtHTG(itemsTotalLocal)}</b></td>
-      </tr>
-    `
-    : `<tr><td colspan="3" class="muted">Aucun</td></tr>`;
+  // ✅ ajoute les frais livraison (si dispo)
+const feeLine = Number(pv?.totals?.totalDeliveryFees || 0);
+
+let rowsHtml = list.map(x=>`
+  <tr>
+    <td>${escapeHtml(x.name||"")}</td>
+    <td>${Number(x.qty||0)}</td>
+    <td><b>${fmtHTG(x.amount||0)}</b></td>
+  </tr>
+`).join("");
+
+// ✅ ligne frais livraison
+if(feeLine > 0){
+  rowsHtml += `
+    <tr>
+      <td><b>Frais livraison</b></td>
+      <td>—</td>
+      <td><b>${fmtHTG(feeLine)}</b></td>
+    </tr>
+  `;
 }
+
+$("cd_prodTbody").innerHTML = (list.length || feeLine > 0)
+  ? rowsHtml + `
+    <tr>
+      <td colspan="2"><b>TOTAL PRODUITS</b></td>
+      <td><b>${fmtHTG(itemsTotalLocal + feeLine)}</b></td>
+    </tr>
+  `
+  : `<tr><td colspan="3" class="muted">Aucun</td></tr>`;
 
 async function validateCloseDay(){
   try{
