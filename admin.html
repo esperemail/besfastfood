@@ -127,7 +127,6 @@
       background:rgba(255,255,255,.06);color:var(--txt);font-weight:900;cursor:pointer;
     }
 
-    /* ✅ Highlight commandes */
     tr.is-new td{ background: var(--newRow); }
     tr.is-received td{ background: var(--recvRow); }
     tr.is-working td{ background: var(--workRow); }
@@ -153,7 +152,6 @@
       display:none;
     }
 
-    /* ✅ Livré */
     .deliveredBox{
       display:flex;
       align-items:center;
@@ -205,7 +203,6 @@
 
       <div class="row" style="flex:1;justify-content:flex-end">
         <input id="adminKey" placeholder="ADMIN KEY (auto)" style="max-width:340px" />
-
         <input id="orderIdSearch" placeholder="Recherche ID commande…" style="max-width:260px" />
 
         <label class="pill" style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -229,7 +226,6 @@
       <div id="toast" class="toast"></div>
       <div id="err" class="err"></div>
 
-      <!-- ORDERS -->
       <section id="tab-orders">
         <div class="card">
           <div class="content" style="padding:0">
@@ -259,7 +255,6 @@
         </div>
       </section>
 
-      <!-- Pending -->
       <section id="tab-pending" style="display:none">
         <div class="card">
           <div class="cardHead">
@@ -281,7 +276,6 @@
         </div>
       </section>
 
-      <!-- PRODUCTS -->
       <section id="tab-products" style="display:none">
         <div class="grid">
           <div class="card">
@@ -382,7 +376,6 @@
         </div>
       </section>
 
-      <!-- PLACE ORDER -->
       <section id="tab-place" style="display:none">
         <div id="deliveryWarn" class="noteBar">Zone de livraison obligatoire</div>
 
@@ -483,7 +476,6 @@
         </div>
       </section>
 
-      <!-- ✅ CLOSE DAY -->
       <section id="tab-closeDay" style="display:none">
         <div class="grid">
           <div class="card">
@@ -507,6 +499,7 @@
               <div class="muted small">
                 Les commandes <b>Annulée</b> et <b>En attente</b> ne sont pas comptées comme ventes.
                 La validation est <b>bloquée</b> si une commande dans la période n’est pas <b>Livré</b>.
+                <div class="muted small" style="margin-top:6px">Fuseau utilisé: <b>Haïti (America/Port-au-Prince)</b></div>
               </div>
               <div class="hr"></div>
 
@@ -538,7 +531,6 @@
         </div>
       </section>
 
-      <!-- ✅ HISTORIQUE TRANSACTIONS -->
       <section id="tab-histTx" style="display:none">
         <div class="card">
           <div class="cardHead">
@@ -570,7 +562,6 @@
         </div>
       </section>
 
-      <!-- ✅ HISTORIQUE RAPPORTS -->
       <section id="tab-histRep" style="display:none">
         <div class="card">
           <div class="cardHead">
@@ -614,6 +605,11 @@ const DEFAULT_COUNTRY_CODE = "509";
 const DEFAULT_ADMIN_KEY = "bes_admin_06070048094439";
 const LS_ADMIN_KEY = "bes_admin_key";
 
+// ✅ Fuseau HAÏTI (évite les décalages)
+const HT_TZ = "America/Port-au-Prince";
+// Haïti est généralement UTC-5. On force un offset stable pour calculer minuit Haïti en UTC.
+const HT_TZ_OFFSET_MIN = -300; // -5h
+
 /***************
  * Livraison: frais par zone
  ***************/
@@ -655,34 +651,54 @@ function norm(s){
 }
 
 /***************
- * Helpers dates
+ * Dates / Timezone helpers
  ***************/
 function todayISO(){
-  const d = new Date();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
+  // ✅ date "aujourd’hui" selon HAÏTI, pas selon le PC si mal réglé
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: HT_TZ, year:"numeric", month:"2-digit", day:"2-digit" });
+  return fmt.format(new Date()); // en-CA => YYYY-MM-DD
 }
+
+function formatDateTimeHT(raw){
+  if(!raw) return "";
+  const t = Date.parse(String(raw));
+  if(Number.isNaN(t)) return String(raw);
+  return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: HT_TZ,
+    year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit"
+  }).format(new Date(t));
+}
+
 function parseOrderDateMs(o){
   const raw = String(o?.DateHeure || o?.Date || o?.createdAt || o?.CreatedAt || "").trim();
   if(!raw) return NaN;
 
-  // ISO / "2026-01-30T05:48:02.039Z"
   let t = Date.parse(raw);
   if(!Number.isNaN(t)) return t;
 
-  // "2026-01-30 05:48:02"
   t = Date.parse(raw.replace(" ", "T"));
   if(!Number.isNaN(t)) return t;
 
-  // fallback date only
   const d = raw.slice(0,10);
-  return Date.parse(d + "T00:00:00");
+  return Date.parse(d + "T00:00:00Z");
 }
+
+// ✅ Convertit une date input YYYY-MM-DD en bornes UTC correspondant à la journée HAÏTI
+function haitianDayStartUtcMs(dateStr){
+  // local Haiti 00:00 => UTC 05:00 (offset -5h)
+  const baseUtc = Date.parse(dateStr + "T00:00:00Z"); // UTC minuit
+  return baseUtc - (HT_TZ_OFFSET_MIN * 60 * 1000);    // -(-300) => +5h
+}
+function haitianDayEndUtcMs(dateStr){
+  const baseUtc = Date.parse(dateStr + "T23:59:59.999Z");
+  return baseUtc - (HT_TZ_OFFSET_MIN * 60 * 1000);
+}
+
 function inDateRangeMs(t, startDate, endDate){
-  const s = Date.parse(startDate + "T00:00:00");
-  const e = Date.parse(endDate   + "T23:59:59.999");
-  return !Number.isNaN(t) && t >= s && t <= e;
+  const s = haitianDayStartUtcMs(startDate);
+  const e = haitianDayEndUtcMs(endDate);
+  return Number.isFinite(t) && t >= s && t <= e;
 }
 
 /***************
@@ -755,10 +771,7 @@ function digitsOnlyPhone(raw){
 }
 function openWhatsAppToClient(phone, message){
   const p = digitsOnlyPhone(phone);
-  if(!p){
-    showErr("Téléphone client invalide.");
-    return;
-  }
+  if(!p){ showErr("Téléphone client invalide."); return; }
   const url = "https://wa.me/" + p + "?text=" + encodeURIComponent(message);
   window.open(url, "_blank");
 }
@@ -828,19 +841,20 @@ function rowClassForStatus(status){
   return "";
 }
 
-/* ✅ tri : non-livré en haut, livré en bas, puis date desc */
 function sortOrdersForDisplay(list){
   const clone = [...(list||[])];
   clone.sort((a,b)=>{
     const aDelivered = norm(a.Statut).includes("livr");
     const bDelivered = norm(b.Statut).includes("livr");
     if(aDelivered !== bDelivered) return aDelivered ? 1 : -1;
-    return String(b.DateHeure||"").localeCompare(String(a.DateHeure||""));
+    // ✅ tri sur timestamp réel (évite les chaînes ISO)
+    const ta = parseOrderDateMs(a) || 0;
+    const tb = parseOrderDateMs(b) || 0;
+    return tb - ta;
   });
   return clone;
 }
 
-/* ✅ filtre : recherche ID + masquer livrés + cache Annulée/En attente */
 function filterOrders(list){
   const q = String($("orderIdSearch").value||"").trim();
   const hideDel = !!$("hideDelivered").checked;
@@ -904,7 +918,7 @@ function renderOrdersTable(ordersRaw){
 
     return `
       <tr class="${trClass}">
-        <td>${escapeHtml(o.DateHeure || "")}</td>
+        <td>${escapeHtml(formatDateTimeHT(o.DateHeure || o.Date || ""))}</td>
         <td class="idCell" title="${escapeHtml(oid)}">${escapeHtml(oid)}</td>
         <td><b>${escapeHtml(o.ClientNom || "")}</b><div class="muted">${escapeHtml(o.Telephone || "")}</div></td>
         <td>${escapeHtml(type)}</td>
@@ -934,7 +948,6 @@ function renderOrdersTable(ordersRaw){
   prevOrderIds = currentIds;
 }
 
-/* ✅ coche livré => statut Livré ; décoche => Reçue */
 window.toggleDelivered = async function(orderId, isDelivered){
   try{
     const nextStatus = isDelivered ? "Livré" : "Reçue";
@@ -968,7 +981,7 @@ window.cancelOrder = async function(orderId){
 };
 
 /***********************
- * 🔶 PENDING ORDERS (En attente)
+ * PENDING ORDERS (En attente)
  ***********************/
 async function loadPendingOrders(){
   try{
@@ -990,7 +1003,7 @@ function renderPendingTable(list){
         const oid = String(o.OrderID||"").trim();
         return `
           <tr>
-            <td>${escapeHtml(o.DateHeure||"")}</td>
+            <td>${escapeHtml(formatDateTimeHT(o.DateHeure||o.Date||""))}</td>
             <td class="idCell" title="${escapeHtml(oid)}">${escapeHtml(oid)}</td>
             <td>
               <b>${escapeHtml(o.ClientNom||"")}</b>
@@ -1026,10 +1039,7 @@ function closePayModal(){
 }
 async function confirmPayModal(){
   const pay = $("paySelect").value;
-  if(!pay){
-    showErr("Choisis une méthode de paiement.");
-    return;
-  }
+  if(!pay){ showErr("Choisis une méthode de paiement."); return; }
   const oid = _pendingFinalizeOrderId;
   closePayModal();
   await finalizePendingWithPay(oid, pay);
@@ -1039,7 +1049,6 @@ window.editPending = async function(orderId){
   try{
     _editingPendingId = String(orderId || "").trim();
 
-    // reset form + cart
     for(const k of Object.keys(placeCart)) delete placeCart[k];
     $("p_name").value = "";
     $("p_phone").value = "";
@@ -1105,7 +1114,6 @@ async function finalizePendingWithPay(orderId, pay){
     }catch(_e){}
 
     if(!ok){
-      // fallback minimum viable: bascule en Reçue
       await setStatus(orderId, "Reçue");
       toast("Finalisé ✅ (paiement non stocké côté serveur)");
     }else{
@@ -1117,7 +1125,7 @@ async function finalizePendingWithPay(orderId, pay){
   }catch(e){
     showErr(e.message || e);
   }
-};
+}
 
 /***************
  * Ready actions
@@ -1154,7 +1162,7 @@ window.readyConsume = async function(order){
 };
 
 /***************
- * Print POS 80mm (✅ Livraison conditionnelle)
+ * Print POS 80mm
  ***************/
 function getDeliveryFee(){
   const isLiv = norm($("p_type").value)==="livraison";
@@ -1192,14 +1200,7 @@ window.printPOS80 = function(order){
 <style>
 @page { size: 80mm auto; margin: 6mm; }
 body{ margin:0; padding:0; }
-.sheet{
-  width: 68mm;
-  margin: 0 auto;
-  font-family: Arial, sans-serif;
-  margin:0;
-  color:#000;
-  font-size:16px;
-}
+.sheet{ width: 68mm; margin: 0 auto; font-family: Arial, sans-serif; margin:0; color:#000; font-size:16px; }
 h1{ text-align:center; font-size:22px; margin:0 0 4px 0; }
 .small{ font-size:15px; }
 .hr{ border-top:1px dashed #000; margin:10px 0; }
@@ -1208,33 +1209,16 @@ td{ padding:5px 0; }
 td.qty{ width:18mm; text-align:right; font-weight:700; }
 td.amt{ width:28mm; text-align:right; font-weight:700; }
 .footer{ text-align:center; margin-top:10px; font-size:13px; }
-
-.driverBox{
-  margin-top:10px;
-  border:2px solid #000;
-  padding:8px;
-}
-.driverTitle{
-  font-size:16px;
-  font-weight:900;
-  text-align:center;
-  margin-bottom:6px;
-}
-.driverLine{
-  font-size:16px;
-  font-weight:900;
-  margin:4px 0;
-}
-.driverLabel{
-  display:inline-block;
-  min-width:18mm;
-}
+.driverBox{ margin-top:10px; border:2px solid #000; padding:8px; }
+.driverTitle{ font-size:16px; font-weight:900; text-align:center; margin-bottom:6px; }
+.driverLine{ font-size:16px; font-weight:900; margin:4px 0; }
+.driverLabel{ display:inline-block; min-width:18mm; }
 </style>
 </head>
 <body>
 <h1>BES FAST FOOD</h1>
 <div class="small">
-  <div><b>Date:</b> ${escapeHtml(order.DateHeure||"")}</div>
+  <div><b>Date:</b> ${escapeHtml(formatDateTimeHT(order.DateHeure||order.Date||""))}</div>
   <div><b>ID:</b> ${escapeHtml(order.OrderID||"")}</div>
   <div><b>Client:</b> ${escapeHtml(order.ClientNom||"")}</div>
   <div><b>Tél:</b> ${escapeHtml(order.Telephone||"")}</div>
@@ -1425,7 +1409,7 @@ $("setStockBtn").addEventListener("click", async ()=>{
  * Place order
  ***************/
 let menuProducts = [];
-const placeCart = {}; // { productId: qty }
+const placeCart = {};
 
 function syncPlaceDeliveryUI(){
   const isLiv = norm($("p_type").value)==="livraison";
@@ -1487,7 +1471,6 @@ function renderPlaceCart(){
 
     if(isLiv){
       const z = $("p_zone").value.trim();
-      const f = fee;
       $("placeCartItems").innerHTML += `
         <div class="hr"></div>
         <div class="row sp">
@@ -1495,7 +1478,7 @@ function renderPlaceCart(){
             <b>Frais livraison</b>
             <div class="muted small">${escapeHtml(z || "Zone non choisie")}</div>
           </div>
-          <b>${fmtHTG(f)}</b>
+          <b>${fmtHTG(fee)}</b>
         </div>
       `;
     }
@@ -1654,11 +1637,9 @@ $("placePendingBtn").addEventListener("click", async ()=>{
     const k = $("adminKey").value.trim();
     const payload = buildPlacePayload_({forcePending:true});
 
-    // 1) crée la nouvelle commande en attente
     const r = await apiJsonp("admin_createPendingOrder", { k, payload: JSON.stringify(payload) });
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_createPendingOrder");
 
-    // 2) si on modifiait une ancienne en attente: annule l’ancienne après succès
     if(_editingPendingId){
       await setStatus(_editingPendingId, "Annulée");
     }
@@ -1725,30 +1706,27 @@ async function closeDayPreview(){
     const endDate   = $("cd_end").value.trim()   || startDate;
     const openingCash = Number($("cd_opening").value || 0);
 
-    // 1) tout récupérer (cohérent avec validation)
+    const startMs = haitianDayStartUtcMs(startDate);
+    const endMs   = haitianDayEndUtcMs(endDate);
+
     const r = await apiJsonp("admin_listOrders", { k, limit:"500", status:"" });
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_listOrders");
     const all = Array.isArray(r.orders) ? r.orders : [];
 
-    // 2) filtre dates
     const inRange = all.filter(o=>{
       const t = parseOrderDateMs(o);
-      return inDateRangeMs(t, startDate, endDate);
+      return Number.isFinite(t) && t >= startMs && t <= endMs;
     });
 
-    // 3) ventes = inRange - (Annulée + En attente)
     const sold = inRange.filter(o=>!isExcludedFromSales_(o));
 
-    // 4) blocage: si une commande dans la période n'est pas Livré (en excluant annulée / attente)
     const notDelivered = sold.filter(o=>!isDelivered_(o));
     const undeliveredCount = notDelivered.length;
 
-    // 5) totaux paiements + totaux produits + frais livraison
     const byPayment = { Cash:0, Moncash:0, Natcash:0, "Crédit":0 };
     let grandTotal = 0;
     let totalDeliveryFees = 0;
 
-    // map produit -> {name, qty, amount}
     const prodMap = new Map();
 
     for(const o of sold){
@@ -1791,6 +1769,7 @@ async function closeDayPreview(){
 
     _cd_lastPreview = {
       startDate, endDate,
+      startMs, endMs,
       dateLabel: (startDate===endDate) ? startDate : `${startDate} → ${endDate}`,
       ordersCount: sold.length,
       undeliveredCount,
@@ -1812,11 +1791,7 @@ async function closeDayPreview(){
     $("cd_blockMsg").style.display = undeliveredCount > 0 ? "inline" : "none";
     $("cd_validateBtn").disabled = undeliveredCount > 0 || sold.length===0;
 
-    if(undeliveredCount>0){
-      toast("Preview généré (validation BLOQUÉE) ⚠️");
-    }else{
-      toast("Preview généré ✅");
-    }
+    toast(undeliveredCount>0 ? "Preview généré (validation BLOQUÉE) ⚠️" : "Preview généré ✅");
   }catch(e){
     showErr(e.message || e);
   }
@@ -1835,7 +1810,7 @@ function renderCloseDayPreview(pv){
   const pay = (t.byPayment || {});
 
   const lines = [
-    `<b>Période:</b> ${escapeHtml(pv.dateLabel || "")}`,
+    `<b>Période (Haïti):</b> ${escapeHtml(pv.dateLabel || "")}`,
     `<b>Nb ventes:</b> ${Number(pv.ordersCount||0)}`,
     `<b>Ventes paiement:</b>`,
     `Cash: <b>${fmtHTG(pay.Cash||0)}</b> • Crédit: <b>${fmtHTG(pay["Crédit"]||0)}</b>`,
@@ -1850,11 +1825,10 @@ function renderCloseDayPreview(pv){
 
   $("cd_summary").innerHTML = undMsg + lines.join("<br>");
 
-  // table produits + frais livraison + total
   const list = Array.isArray(pv.byProduct) ? pv.byProduct : [];
   const feeLine = Number(t.totalDeliveryFees || 0);
-  const itemsTotal = Number(t.itemsTotal || 0);
   const totalProductsPlusFees = Number(t.totalProductsPlusFees || 0);
+  const itemsTotal = Number(t.itemsTotal || 0);
 
   let rowsHtml = list.map(x=>`
     <tr>
@@ -1870,9 +1844,6 @@ function renderCloseDayPreview(pv){
       <td>—</td>
       <td><b>${fmtHTG(feeLine)}</b></td>
     </tr>
-  `;
-
-  rowsHtml += `
     <tr>
       <td colspan="2"><b>TOTAL PRODUITS + frais</b></td>
       <td><b>${fmtHTG(totalProductsPlusFees)}</b></td>
@@ -1895,7 +1866,6 @@ async function validateCloseDay(){
     const endDate   = $("cd_end").value.trim()   || startDate;
     const openingCash = String($("cd_opening").value || 0);
 
-    // sécurité: preview obligatoire + cohérence dates + blocage si non livré
     if(!_cd_lastPreview || _cd_lastPreview.startDate!==startDate || _cd_lastPreview.endDate!==endDate){
       throw new Error("Fais d'abord Preview (dates) avant Valider.");
     }
@@ -1906,7 +1876,21 @@ async function validateCloseDay(){
       throw new Error("Impossible de valider : commande(s) non livrée(s) dans la période.");
     }
 
-    const r = await apiJsonp("admin_validateCloseDay", { k, startDate, endDate, openingCash });
+    // ✅ Envoie aussi startMs/endMs + timezone (pour que le serveur filtre correctement)
+    const startMs = _cd_lastPreview.startMs;
+    const endMs   = _cd_lastPreview.endMs;
+
+    const r = await apiJsonp("admin_validateCloseDay", {
+      k,
+      startDate,
+      endDate,
+      openingCash,
+      startMs: String(startMs),
+      endMs: String(endMs),
+      tzId: HT_TZ,
+      tzOffsetMin: String(HT_TZ_OFFSET_MIN)
+    });
+
     if(!r || !r.ok) throw new Error(r?.error || "Erreur admin_validateCloseDay");
 
     toast("Clôture validée ✅ (PDF + historique)");
@@ -1917,9 +1901,9 @@ async function validateCloseDay(){
       $("cd_pdfBox").innerHTML = `PDF prêt: <a href="${r.pdfUrl}" target="_blank" rel="noopener"><b>Ouvrir / Imprimer</b></a>`;
     }
 
-    // ✅ Objectif #5: après clôture validée, rafraîchir historique transactions
     loadOrders();
     loadTxHistory();
+    loadReportsHistory();
   }catch(e){
     showErr(e.message || e);
   }
@@ -1943,18 +1927,16 @@ async function loadTxHistory(){
 
     const list = Array.isArray(r.orders) ? r.orders : [];
     list.sort((a,b)=>{
-      const da = parseOrderDateMs(a);
-      const db = parseOrderDateMs(b);
-      return (db||0) - (da||0);
+      const da = parseOrderDateMs(a) || 0;
+      const db = parseOrderDateMs(b) || 0;
+      return db - da;
     });
 
     $("ht_tbody").innerHTML = list.length ? list.map(o=>{
       const st = String(o.Statut||"-");
-      const dRaw = String(o.DateHeure || o.Date || "");
-      const dateShort = dRaw ? dRaw.slice(0,10) : "";
       return `
         <tr>
-          <td>${escapeHtml(dateShort || dRaw || "")}</td>
+          <td>${escapeHtml(formatDateTimeHT(o.DateHeure || o.Date || ""))}</td>
           <td class="idCell" title="${escapeHtml(o.OrderID||"")}">${escapeHtml(o.OrderID||"")}</td>
           <td><b>${escapeHtml(o.ClientNom||"")}</b><div class="muted">${escapeHtml(o.Telephone||"")}</div></td>
           <td>${escapeHtml(o.PaymentMethod||"")}</td>
@@ -2019,6 +2001,9 @@ $("hr_loadBtn").addEventListener("click", loadReportsHistory);
     setAdminKey($("adminKey").value.trim());
   });
 
+  // init dates par défaut (Haïti)
+  initCloseDayUI();
+
   syncPlaceDeliveryUI();
   loadOrders();
 })();
@@ -2054,5 +2039,3 @@ $("hr_loadBtn").addEventListener("click", loadReportsHistory);
 
 </body>
 </html>
-
-
