@@ -706,6 +706,38 @@ function escapeHtml(s){
   return String(s||"").replace(/[&<>"']/g, (m)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
 }
 function norm(s){ return String(s||"").toLowerCase().trim(); }
+/***********************
+ * Helpers dates + status (CloseDay)
+ ***********************/
+function parseOrderDateMs(o){
+  const raw = String(o?.DateHeure || o?.Date || "").trim();
+  if(!raw) return NaN;
+
+  // ISO / "2026-01-30T05:48:02.039Z"
+  let t = Date.parse(raw);
+  if(!Number.isNaN(t)) return t;
+
+  // "2026-01-30 05:48:02"
+  t = Date.parse(raw.replace(" ", "T"));
+  if(!Number.isNaN(t)) return t;
+
+  // fallback date only
+  const d = raw.slice(0,10);
+  return Date.parse(d + "T00:00:00");
+}
+
+function inDateRangeMs(t, startDate, endDate){
+  const s = Date.parse(startDate + "T00:00:00");
+  const e = Date.parse(endDate   + "T23:59:59.999");
+  return !Number.isNaN(t) && t >= s && t <= e;
+}
+
+function normStatus2(s){
+  s = String(s||"").trim().toLowerCase();
+  try{ s = s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }catch(_e){}
+  return s;
+}
+
   
 let _pendingFinalizeOrderId = null;
 
@@ -1835,7 +1867,7 @@ async function closeDayPreview(){
     });
 
     // 4) Recalcul totals / paiement / produits
-    const byPayment = { Cash:0, Moncash:0, Natcash:0, "Crédit":0, Natcash:0 };
+    const byPayment = { Cash:0, Moncash:0, Natcash:0, "Crédit":0,};
     let grandTotal = 0;
 
     // map produit -> {name, qty, amount}
